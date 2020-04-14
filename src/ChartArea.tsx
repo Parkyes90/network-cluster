@@ -1,9 +1,14 @@
 import React, { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
+import agesCSV from 'data/ages.csv';
 
 interface ChartAreaProps {
   data: number[];
 }
+
+d3.csv(agesCSV).then((data) => {
+  console.log(data);
+});
 
 const ChartArea: React.FC<ChartAreaProps> = ({ data }) => {
   const ref = useRef<HTMLDivElement>(null);
