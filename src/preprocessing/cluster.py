@@ -7,7 +7,7 @@ from sklearn.manifold import TSNE
 from src.config.settings import BASE_DIR, OUTPUTS_DIR
 import os.path
 import pickle
-from bokeh.plotting import figure, show, output_notebook
+from bokeh.plotting import figure, show
 from bokeh.models import HoverTool, ColumnDataSource, value
 from bokeh.palettes import brewer
 
@@ -52,11 +52,11 @@ def draw_chart(df):
     )
     tsne_df["title"] = df["title"].to_list()
     tsne_df["cluster_no"] = y
-    colors = brewer["Spectral"][len(tsne_df["cluster_no"].unique())]
-    colormap = {i: colors[i] for i in tsne_df["cluster_no"].unique()}
+    colormap = {0: "#aa2e25", 1: "#482880", 2: "#2a3eb1", 3: "#00a152"}
     colors = [colormap[x] for x in tsne_df["cluster_no"]]
     tsne_df["color"] = colors
     plot_data = ColumnDataSource(data=tsne_df.to_dict(orient="list"))
+
     tsne_plot = figure(
         # title='TSNE Twitter BIO Embeddings',
         plot_width=650,
@@ -76,10 +76,10 @@ def draw_chart(df):
         line_color="color",
     )
     tsne_plot.title.text_font_size = value("16pt")
-    tsne_plot.xaxis.visible = False
-    tsne_plot.yaxis.visible = False
-    tsne_plot.grid.grid_line_color = None
-    tsne_plot.outline_line_color = None
+    tsne_plot.xaxis.visible = True
+    tsne_plot.yaxis.visible = True
+    # tsne_plot.grid.grid_line_color = None
+    # tsne_plot.outline_line_color = None
     show(tsne_plot)
 
 
@@ -94,14 +94,18 @@ def read_word_vector_docs():
     num_clusters = 4
     kmeans_clustering = KMeans(n_clusters=num_clusters)
     idx = kmeans_clustering.fit_predict(word_vectors)
-    print(idx)
     df["cluster"] = idx
+    print(idx)
     return df
 
 
 def main():
     df = read_word_vector_docs()
-    # draw_chart(df)
+    draw_chart(df)
+    # del df["wv"]
+    # del df["tokens_len"]
+    # del df["tokens"]
+    # df.to_csv(os.path.join(OUTPUTS_DIR, "cluster-docs.csv"), index=False)
 
 
 if __name__ == "__main__":
