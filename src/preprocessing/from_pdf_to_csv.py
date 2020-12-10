@@ -3,7 +3,6 @@ import multiprocessing
 import os
 import re
 import sys
-import textract
 from src.config.settings import PAPERS_DIR, OUTPUTS_DIR
 import pdftotext
 
@@ -24,7 +23,6 @@ def read_pdf(path):
     text = ""
     for page in pdf:
         text += page
-    print(text)
     file.close()
     return text
 
@@ -34,13 +32,9 @@ def write_row(item):
     paper = str(paper)
     path = os.path.join(PAPERS_DIR, year, paper)
     title = paper.split(".")[0]
-    try:
-        context = read_pdf(path)
-        context = re.sub(r"\(cid:\d{1,10}\)", "", context)
-
-        return ["논문", year, title, context]
-    except TypeError:
-        return ["논문", year, title, "Error"]
+    context = read_pdf(path)
+    context = re.sub(r"\(cid:\d{1,10}\)", "", context)
+    return ["논문", year, title, context]
 
 
 def to_csv():
@@ -57,12 +51,6 @@ def to_csv():
             data = pool.map(write_row, papers)
         for row in data:
             w.writerow(row)
-        # for paper in papers:
-        #     paper = str(paper)
-        #     path = os.path.join(PAPERS_DIR, year, paper)
-        #     context = read_pdf(path)
-        #     title = paper.split(".")[0]
-        #     w.writerow(["논문", year, title, context])
     file.close()
 
 
@@ -72,16 +60,16 @@ def apply_index_to_csv():
     w.writerow(["index", "cate", "year", "title", "context"])
     with open(os.path.join(OUTPUTS_DIR, "papers.csv")) as f:
         reader = csv.reader(f)
-        for index, row in enumerate(reader, 1):
+        for index, row in enumerate(reader):
             if index == 0:
                 continue
             w.writerow([index, *row])
-            print(index)
+
     file.close()
 
 
 def main():
-    to_csv()
+    # to_csv()
     apply_index_to_csv()
 
 
