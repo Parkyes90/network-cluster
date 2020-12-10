@@ -7,6 +7,9 @@ verify_ssl = true
 
 [packages]
 pdfminer = "*"
+tika = "*"
+textract = "*"
+pdftotext = "*"
 
 [requires]
 python_version = "3.8"

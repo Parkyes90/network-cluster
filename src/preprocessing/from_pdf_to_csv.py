@@ -2,14 +2,12 @@ import csv
 import multiprocessing
 import os
 import re
-from io import StringIO
-from pdfminer.converter import TextConverter
-from pdfminer.layout import LAParams
-from pdfminer.pdfdocument import PDFDocument
-from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
-from pdfminer.pdfpage import PDFPage
-from pdfminer.pdfparser import PDFParser
+import sys
+import textract
 from src.config.settings import PAPERS_DIR, OUTPUTS_DIR
+import pdftotext
+
+csv.field_size_limit(sys.maxsize)
 
 
 def get_years():
@@ -21,17 +19,14 @@ def walk_papers(year):
 
 
 def read_pdf(path):
-    output = StringIO()
     file = open(path, "rb")
-    parser = PDFParser(file)
-    doc = PDFDocument(parser)
-    rsrcmgr = PDFResourceManager()
-    device = TextConverter(rsrcmgr, output, laparams=LAParams())
-    interpreter = PDFPageInterpreter(rsrcmgr, device)
-    for page in PDFPage.create_pages(doc):
-        interpreter.process_page(page)
-    print(f"{path} READ")
-    return str(output.getvalue())
+    pdf = pdftotext.PDF(file)
+    text = ""
+    for page in pdf:
+        text += page
+    print(text)
+    file.close()
+    return text
 
 
 def write_row(item):
@@ -45,7 +40,7 @@ def write_row(item):
 
         return ["논문", year, title, context]
     except TypeError:
-        return ["논문", year, title, ""]
+        return ["논문", year, title, "Error"]
 
 
 def to_csv():
@@ -71,8 +66,23 @@ def to_csv():
     file.close()
 
 
+def apply_index_to_csv():
+    file = open(os.path.join(OUTPUTS_DIR, "index-papers.csv"), "w")
+    w = csv.writer(file)
+    w.writerow(["index", "cate", "year", "title", "context"])
+    with open(os.path.join(OUTPUTS_DIR, "papers.csv")) as f:
+        reader = csv.reader(f)
+        for index, row in enumerate(reader, 1):
+            if index == 0:
+                continue
+            w.writerow([index, *row])
+            print(index)
+    file.close()
+
+
 def main():
     to_csv()
+    apply_index_to_csv()
 
 
 if __name__ == "__main__":
