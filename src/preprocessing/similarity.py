@@ -1,12 +1,15 @@
 import csv
 import os
 import sys
+from collections import defaultdict
+
 from pyvis.network import Network
 
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 from src.config.settings import OUTPUTS_DIR
+from src.preprocessing.cluster import min_max_normalize
 
 csv.field_size_limit(sys.maxsize)
 
@@ -17,18 +20,32 @@ def draw_chart():
     with open(os.path.join(OUTPUTS_DIR, "similarity.csv")) as f:
         reader = list(csv.reader(f))
         reader.pop(0)
-        for row in reader:
-            index, title, cluster, *rows = row
-            color = colors[cluster]
-            net.add_node(index, "".join(title.split(" ")[:2]), color=color)
-        for row in reader:
-            index, title, cluster, *rows = row
-            for idx, r in enumerate(rows, 1):
-                if index != str(idx) and r != "0":
-                    end_color = colors[reader[idx - 1][2]]
-                    net.add_edge(
-                        index, str(idx), color=end_color, weight=float(r)
-                    )
+    count_map = defaultdict(int)
+    sizes = [0] * (len(reader) + 1)
+    for row in reader:
+        index, title, cluster, *rows = row
+        for idx, r in enumerate(rows, 1):
+            if index != str(idx) and r != "0":
+                count_map[idx] += 1
+    for index, value in count_map.items():
+        sizes[index] = value
+    normalized = min_max_normalize(sizes)
+    for row in reader:
+        index, title, cluster, *rows = row
+        color = colors[cluster]
+        net.add_node(
+            index,
+            "".join(title.split(" ")[:2]),
+            color=color,
+            size=20 + (normalized[int(index)] * 20),
+        )
+    for row in reader:
+        index, title, cluster, *rows = row
+        for idx, r in enumerate(rows, 1):
+            if index != str(idx) and r != "0":
+                end_color = colors[reader[idx - 1][2]]
+                net.add_edge(index, str(idx), color=end_color, weight=float(r))
+    net.set_edge_smooth("dynamic")
     net.show_buttons(filter_=["physics"])
     net.show("nx.html")
 

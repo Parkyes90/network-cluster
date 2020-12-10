@@ -9,7 +9,18 @@ import os.path
 import pickle
 from bokeh.plotting import figure, show
 from bokeh.models import HoverTool, ColumnDataSource, value
-from bokeh.palettes import brewer
+
+
+def min_max_normalize(lst):
+    normalized = []
+
+    for v in lst:
+        normalized_num = (v - min(lst)) / (max(lst) - min(lst))
+
+        normalized.append(normalized_num)
+
+    return normalized
+
 
 model = Word2Vec.load(
     os.path.join(BASE_DIR, "data", "downloads", "embedding.save")
@@ -51,12 +62,14 @@ def draw_chart(df):
         tsne_points, index=range(len(X)), columns=["x_coord", "y_coord"]
     )
     tsne_df["title"] = df["title"].to_list()
+    tsne_df["tokens_len"] = df["tokens_len"].to_list()
     tsne_df["cluster_no"] = y
-    colormap = {0: "#aa2e25", 1: "#482880", 2: "#2a3eb1", 3: "#00a152"}
+    colormap = {0: "#ffee33", 1: "#00a152", 2: "#2979ff", 3: "#d500f9"}
     colors = [colormap[x] for x in tsne_df["cluster_no"]]
     tsne_df["color"] = colors
+    normalized = min_max_normalize(tsne_df.tokens_len.to_list())
+    tsne_df["radius"] = [10 + x * 10 for x in normalized]
     plot_data = ColumnDataSource(data=tsne_df.to_dict(orient="list"))
-
     tsne_plot = figure(
         # title='TSNE Twitter BIO Embeddings',
         plot_width=650,
@@ -69,9 +82,9 @@ def draw_chart(df):
         source=plot_data,
         x="x_coord",
         y="y_coord",
-        line_alpha=0.3,
-        fill_alpha=0.2,
-        size=10,
+        line_alpha=0.9,
+        fill_alpha=0.8,
+        size="radius",
         fill_color="color",
         line_color="color",
     )
@@ -95,7 +108,6 @@ def read_word_vector_docs():
     kmeans_clustering = KMeans(n_clusters=num_clusters)
     idx = kmeans_clustering.fit_predict(word_vectors)
     df["cluster"] = idx
-    print(idx)
     return df
 
 
