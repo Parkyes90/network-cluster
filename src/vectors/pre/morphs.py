@@ -1,7 +1,14 @@
 import csv
 import os
+import pickle
 from itertools import combinations
 import numpy as np
+import pandas as pd
+from bokeh.core.property.dataspec import value
+from bokeh.io import show
+from bokeh.models import ColumnDataSource, HoverTool
+from bokeh.plotting import figure
+from sklearn.manifold import TSNE
 
 from src.config.settings import DATA_DIR, OUTPUTS_DIR
 from src.preprocessing.cluster import min_max_normalize
@@ -130,13 +137,59 @@ def export_comb(morphs):
         w.writerows([("가로축", "세로축"), *comb])
 
 
+def draw_vectors():
+    df = pd.read_csv(
+        os.path.join(OUTPUTS_DIR, "normalized_future_vectors.csv")
+    )
+    for idx in range(5, len(df.columns), 2):
+        X = df[df.columns[idx]].to_list()
+        Y = df[df.columns[idx + 1]].to_list()
+
+        tsne_df = pd.DataFrame(
+            zip(X, Y), index=range(len(X)), columns=["x_coord", "y_coord"]
+        )
+        tsne_df["title"] = df["title"].to_list()
+        tsne_df["cluster_no"] = df["cluster"].to_list()
+        colormap = {0: "#ffee33", 1: "#00a152", 2: "#2979ff", 3: "#d500f9"}
+        colors = [colormap[x] for x in tsne_df["cluster_no"]]
+        tsne_df["color"] = colors
+        plot_data = ColumnDataSource(data=tsne_df.to_dict(orient="list"))
+        tsne_plot = figure(
+            # title='TSNE Twitter BIO Embeddings',
+            plot_width=650,
+            plot_height=650,
+            active_scroll="wheel_zoom",
+            output_backend="webgl",
+        )
+        tsne_plot.add_tools(HoverTool(tooltips="@title"))
+        tsne_plot.circle(
+            source=plot_data,
+            x="x_coord",
+            y="y_coord",
+            line_alpha=0.9,
+            fill_alpha=0.8,
+            size=20,
+            fill_color="color",
+            line_color="color",
+        )
+        tsne_plot.title.text_font_size = value("16pt")
+        tsne_plot.xaxis.visible = True
+        tsne_plot.yaxis.visible = True
+        tsne_plot.xaxis.axis_label = df.columns[idx]
+        tsne_plot.yaxis.axis_label = df.columns[idx + 1]
+        # tsne_plot.grid.grid_line_color = None
+        # tsne_plot.outline_line_color = None
+        show(tsne_plot)
+
+
 def main():
-    morphs = get_data(MORPHS_PATH)
+    # morphs = get_data(MORPHS_PATH)
     # clusters = get_cluster_data()
     # export_vectors(morphs, clusters)
     # export_normalized_future_vectors()
     # export_normalized_future_cluster_vectors()
-    export_comb(morphs)
+    # export_comb(morphs)
+    draw_vectors()
 
 
 if __name__ == "__main__":

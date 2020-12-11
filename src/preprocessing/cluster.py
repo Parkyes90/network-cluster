@@ -60,10 +60,11 @@ def draw_chart(df):
     else:  # Cache Hits!
         with open(tsne_filepath, "rb") as f:
             tsne_points = pickle.load(f)
-
+    print(tsne_points)
     tsne_df = pd.DataFrame(
         tsne_points, index=range(len(X)), columns=["x_coord", "y_coord"]
     )
+
     tsne_df["title"] = df["title"].to_list()
     tsne_df["tokens_len"] = df["tokens_len"].to_list()
     tsne_df["cluster_no"] = y
