@@ -1,16 +1,16 @@
 import csv
 import os
-import pickle
 from itertools import combinations
 import numpy as np
 import pandas as pd
 from bokeh.core.property.dataspec import value
-from bokeh.io import show
-from bokeh.models import ColumnDataSource, HoverTool
+from bokeh.io import show, export_png
+from bokeh.io.export import export_svg
+from bokeh.models import ColumnDataSource, HoverTool, LinearAxis, Range1d
 from bokeh.plotting import figure
-from sklearn.manifold import TSNE
+from selenium import webdriver
 
-from src.config.settings import DATA_DIR, OUTPUTS_DIR
+from src.config.settings import DATA_DIR, OUTPUTS_DIR, BASE_DIR
 from src.preprocessing.cluster import min_max_normalize
 
 format_string = "{}. {}_result.csv"
@@ -50,7 +50,11 @@ def get_data(path):
 
 
 def export_vectors(morphs, cluster_data):
-    header = ["index", "cate", "year", "title", "cluster", *morphs.keys()]
+    keys = list(morphs.keys())
+    vector_header = []
+    for i in range(0, len(keys), 2):
+        vector_header.append(f"{keys[i]} | {keys[i + 1]}")
+    header = ["index", "cate", "year", "title", "cluster", *vector_header]
     ret = [header]
     for item in cluster_data:
         *remain, context, cluster = item
@@ -63,9 +67,11 @@ def export_vectors(morphs, cluster_data):
                 if k in keywords:
                     total += 1
             temp.append(total)
+        merge = []
+        for i in range(0, len(temp), 2):
+            merge.append(temp[i + 1] - temp[i])
 
-        ret.append([*remain, cluster, *temp])
-
+        ret.append([*remain, cluster, *merge])
     with open(os.path.join(OUTPUTS_DIR, "future_vectors_raw.csv"), "w") as f:
         reader = csv.writer(f)
         reader.writerows(ret)
@@ -130,20 +136,25 @@ def export_comb(morphs):
     ret = []
     keys = list(morphs.keys())
     for i in range(0, len(keys), 2):
-        ret.append(f"{keys[i]}|{keys[i + 1]}")
+        ret.append(f"{keys[i]} | {keys[i + 1]}")
     comb = list(combinations(ret, 2))
     with open(os.path.join(OUTPUTS_DIR, "future_comb.csv"), "w") as f:
         w = csv.writer(f)
-        w.writerows([("가로축", "세로축"), *comb])
+        w.writerows([("가로축", "세로축"), *enumerate(comb, 1)])
 
 
 def draw_vectors():
+    driver = webdriver.Chrome(os.path.join(BASE_DIR, "chromedriver"))
+
     df = pd.read_csv(
         os.path.join(OUTPUTS_DIR, "normalized_future_vectors.csv")
     )
-    for idx in range(5, len(df.columns), 2):
-        X = df[df.columns[idx]].to_list()
-        Y = df[df.columns[idx + 1]].to_list()
+    comb = list(combinations(range(5, len(df.columns)), 2))
+
+    for idx, coord in enumerate(comb, 1):
+        x, y = coord
+        X = df[df.columns[x]].to_list()
+        Y = df[df.columns[y]].to_list()
 
         tsne_df = pd.DataFrame(
             zip(X, Y), index=range(len(X)), columns=["x_coord", "y_coord"]
@@ -156,8 +167,8 @@ def draw_vectors():
         plot_data = ColumnDataSource(data=tsne_df.to_dict(orient="list"))
         tsne_plot = figure(
             # title='TSNE Twitter BIO Embeddings',
-            plot_width=650,
-            plot_height=650,
+            plot_width=400,
+            plot_height=400,
             active_scroll="wheel_zoom",
             output_backend="webgl",
         )
@@ -168,18 +179,26 @@ def draw_vectors():
             y="y_coord",
             line_alpha=0.9,
             fill_alpha=0.8,
-            size=20,
+            size=10,
             fill_color="color",
             line_color="color",
         )
+        start_x, end_x = df.columns[x].split("|")
+        start_y, end_y = df.columns[y].split("|")
+        start_x = start_x.split(":")[1].strip()
+        end_x = end_x.split(":")[1].strip()
+        start_y = start_y.split(":")[1].strip()
+        end_y = end_y.split(":")[1].strip()
         tsne_plot.title.text_font_size = value("16pt")
         tsne_plot.xaxis.visible = True
         tsne_plot.yaxis.visible = True
-        tsne_plot.xaxis.axis_label = df.columns[idx]
-        tsne_plot.yaxis.axis_label = df.columns[idx + 1]
+        tsne_plot.xaxis.axis_label = f"<--- {start_x} | {end_x} --->"
+        tsne_plot.yaxis.axis_label = f"<--- {start_y} | {end_y} --->"
+        tsne_plot.name = str(idx)
         # tsne_plot.grid.grid_line_color = None
         # tsne_plot.outline_line_color = None
-        show(tsne_plot)
+        export_svg(tsne_plot, filename=f"{idx}.svg", webdriver=driver)
+        # show(tsne_plot)
 
 
 def main():

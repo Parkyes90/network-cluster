@@ -12,6 +12,7 @@ pandas = "*"
 bokeh = "*"
 pyvis = "*"
 parse = "*"
+selenium = "*"
 
 [dev-packages]
 
