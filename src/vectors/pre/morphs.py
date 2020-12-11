@@ -1,10 +1,8 @@
 import csv
 import os
-from collections import defaultdict
-from pprint import pprint
+from itertools import combinations
 import numpy as np
 
-import parse
 from src.config.settings import DATA_DIR, OUTPUTS_DIR
 from src.preprocessing.cluster import min_max_normalize
 
@@ -121,12 +119,24 @@ def export_normalized_future_cluster_vectors():
         w.writerows(ret)
 
 
+def export_comb(morphs):
+    ret = []
+    keys = list(morphs.keys())
+    for i in range(0, len(keys), 2):
+        ret.append(f"{keys[i]}|{keys[i + 1]}")
+    comb = list(combinations(ret, 2))
+    with open(os.path.join(OUTPUTS_DIR, "future_comb.csv"), "w") as f:
+        w = csv.writer(f)
+        w.writerows([("가로축", "세로축"), *comb])
+
+
 def main():
     morphs = get_data(MORPHS_PATH)
-    clusters = get_cluster_data()
-    export_vectors(morphs, clusters)
-    export_normalized_future_vectors()
-    export_normalized_future_cluster_vectors()
+    # clusters = get_cluster_data()
+    # export_vectors(morphs, clusters)
+    # export_normalized_future_vectors()
+    # export_normalized_future_cluster_vectors()
+    export_comb(morphs)
 
 
 if __name__ == "__main__":
