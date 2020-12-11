@@ -6,7 +6,14 @@ import pandas as pd
 from bokeh.core.property.dataspec import value
 from bokeh.io import show, export_png
 from bokeh.io.export import export_svg
-from bokeh.models import ColumnDataSource, HoverTool, LinearAxis, Range1d
+from bokeh.models import (
+    ColumnDataSource,
+    HoverTool,
+    LinearAxis,
+    Range1d,
+    Label,
+    LabelSet,
+)
 from bokeh.plotting import figure
 from selenium import webdriver
 
@@ -165,40 +172,76 @@ def draw_vectors():
         colors = [colormap[x] for x in tsne_df["cluster_no"]]
         tsne_df["color"] = colors
         plot_data = ColumnDataSource(data=tsne_df.to_dict(orient="list"))
-        tsne_plot = figure(
+        plot = figure(
             # title='TSNE Twitter BIO Embeddings',
-            plot_width=400,
-            plot_height=400,
+            plot_width=1600,
+            plot_height=1600,
             active_scroll="wheel_zoom",
-            output_backend="webgl",
+            output_backend="canvas",
         )
-        tsne_plot.add_tools(HoverTool(tooltips="@title"))
-        tsne_plot.circle(
+        plot.add_tools(HoverTool(tooltips="@title"))
+        plot.circle(
             source=plot_data,
             x="x_coord",
             y="y_coord",
             line_alpha=0.9,
             fill_alpha=0.8,
-            size=10,
+            size=30,
             fill_color="color",
             line_color="color",
         )
+        plot.yaxis.axis_label_text_font_size = "25pt"
+        plot.yaxis.major_label_text_font_size = "25pt"
+        plot.xaxis.axis_label_text_font_size = "25pt"
+        plot.xaxis.major_label_text_font_size = "25pt"
         start_x, end_x = df.columns[x].split("|")
         start_y, end_y = df.columns[y].split("|")
         start_x = start_x.split(":")[1].strip()
         end_x = end_x.split(":")[1].strip()
         start_y = start_y.split(":")[1].strip()
         end_y = end_y.split(":")[1].strip()
-        tsne_plot.title.text_font_size = value("16pt")
-        tsne_plot.xaxis.visible = True
-        tsne_plot.yaxis.visible = True
-        tsne_plot.xaxis.axis_label = f"<--- {start_x} | {end_x} --->"
-        tsne_plot.yaxis.axis_label = f"<--- {start_y} | {end_y} --->"
-        tsne_plot.name = str(idx)
-        # tsne_plot.grid.grid_line_color = None
-        # tsne_plot.outline_line_color = None
-        export_svg(tsne_plot, filename=f"{idx}.svg", webdriver=driver)
-        # show(tsne_plot)
+        plot.title.text_font_size = value("32pt")
+        plot.xaxis.visible = True
+        # plot.xaxis.bounds = (0, 0)
+        plot.yaxis.visible = True
+        label_opts1 = dict(x_offset=0, y_offset=750, text_font_size="30px",)
+        msg1 = end_y
+        caption1 = Label(text=msg1, **label_opts1)
+        label_opts2 = dict(x_offset=0, y_offset=-750, text_font_size="30px",)
+        msg2 = start_y
+        caption2 = Label(text=msg2, **label_opts2)
+        label_opts3 = dict(x_offset=600, y_offset=0, text_font_size="30px",)
+        msg3 = end_x
+        caption3 = Label(text=msg3, **label_opts3)
+        label_opts4 = dict(x_offset=-750, y_offset=0, text_font_size="30px",)
+        msg4 = start_x
+        caption4 = Label(text=msg4, **label_opts4)
+
+        plot.add_layout(caption1, "center")
+        plot.add_layout(caption2, "center")
+        plot.add_layout(caption3, "center")
+        plot.add_layout(caption4, "center")
+
+        plot.grid.grid_line_color = None
+        plot.outline_line_color = None
+        plot.yaxis.fixed_location = 0
+        plot.xaxis.fixed_location = 0
+
+        export_svg(
+            plot,
+            filename=f"{idx}.svg",
+            webdriver=driver,
+            height=1600,
+            width=1600,
+        )
+        export_png(
+            plot,
+            filename=f"{idx}.png",
+            webdriver=driver,
+            height=1600,
+            width=1600,
+        )
+        show(plot)
 
 
 def main():
