@@ -1,29 +1,132 @@
 import csv
 import os
+from collections import defaultdict
+from pprint import pprint
+import numpy as np
 
-from src.config.settings import DATA_DIR
+import parse
+from src.config.settings import DATA_DIR, OUTPUTS_DIR
+from src.preprocessing.cluster import min_max_normalize
+
+format_string = "{}. {}_result.csv"
 
 MORPHS_PATH = os.path.join(DATA_DIR, "morphs")
 FUTURES_PATH = os.path.join(DATA_DIR, "futures")
 
 
-def get_data(path):
-    ret = []
+def standard(arr):
+    data = np.array(arr)
+    std_data = (data - np.mean(data, axis=0)) / np.std(data, axis=0)
+    return std_data
 
+
+def get_cluster_data():
+    with open(os.path.join(OUTPUTS_DIR, "cluster-docs.csv")) as f:
+        return list(csv.reader(f))[1:]
+
+
+def get_data(path):
+    ret = {}
+    vectors = []
+    with open(os.path.join(FUTURES_PATH, "future_vector.csv")) as f:
+        for vector in list(csv.reader(f))[1:]:
+            merged = [f"{vector[0].strip()}: {v.strip()}" for v in vector]
+            vectors += merged[1:]
     files = os.listdir(path)
-    files = [file for file in files if "euckr" not in file]
-    for filename in files:
+    files = [
+        file for file in files if all(["euckr" not in file, "공통" not in file])
+    ]
+    files.sort()
+    for idx, filename in enumerate(files):
         with open(os.path.join(path, filename)) as f:
-            reader = list(csv.reader(f))
-            reader.pop(0)
-            ret += reader
+            reader = list(csv.reader(f))[1:]
+            ret[vectors[idx].strip()] = reader
     return ret
+
+
+def export_vectors(morphs, cluster_data):
+    header = ["index", "cate", "year", "title", "cluster", *morphs.keys()]
+    ret = [header]
+    for item in cluster_data:
+        *remain, context, cluster = item
+        splited = set(context.split(" "))
+        temp = []
+        for key, value in morphs.items():
+            total = 0
+            keywords = set(item[0] for item in value)
+            for k in splited:
+                if k in keywords:
+                    total += 1
+            temp.append(total)
+
+        ret.append([*remain, cluster, *temp])
+
+    with open(os.path.join(OUTPUTS_DIR, "future_vectors_raw.csv"), "w") as f:
+        reader = csv.writer(f)
+        reader.writerows(ret)
+
+
+def export_normalized_future_vectors():
+
+    with open(os.path.join(OUTPUTS_DIR, "future_vectors_raw.csv")) as f:
+        reader = list(csv.reader(f))
+    ret = [[] for _ in range(len(reader[0]) - 5)]
+    for row in reader[1:]:
+        _, _, _, _, _, *count = row
+        for idx, v in enumerate(count):
+            ret[idx].append(int(v))
+    normals = []
+    for r in ret:
+        temp = min_max_normalize(r)
+        normals.append([(t - 0.5) * 2 for t in temp])
+    data = [reader[0]]
+    for idx, row in enumerate(reader[1:]):
+        temp = []
+        for i in range(len(row) - 5):
+            temp.append(normals[i][idx])
+        data.append(row[:5] + temp)
+    with open(
+        os.path.join(OUTPUTS_DIR, "normalized_future_vectors.csv"), "w"
+    ) as f:
+        reader = csv.writer(f)
+        reader.writerows(data)
+
+
+def export_normalized_future_cluster_vectors():
+    cluster_map = {}
+    with open(os.path.join(OUTPUTS_DIR, "normalized_future_vectors.csv")) as f:
+        reader = list(csv.reader(f))
+    for row in reader[1:]:
+        if row[4] not in cluster_map:
+            cluster_map[row[4]] = {}
+        for idx, value in enumerate(row[5:]):
+            if idx not in cluster_map[row[4]]:
+                cluster_map[row[4]][idx] = []
+            cluster_map[row[4]][idx].append(float(value))
+    keys = list(cluster_map.keys())
+    ret = [[key] for key in keys]
+    for idx in range(len(reader[0]) - 5):
+        normals = []
+        for value in cluster_map.values():
+            normals.append(sum(value[idx]) / len(value[idx]))
+        normals = min_max_normalize(normals)
+        normals = [(n - 0.5) * 2 for n in normals]
+        for i, v in enumerate(normals):
+            ret[i].append(v)
+    ret.insert(0, ["cluster", *reader[0][5:]])
+    with open(
+        os.path.join(OUTPUTS_DIR, "normalized_future_cluster_vectors.csv"), "w"
+    ) as f:
+        w = csv.writer(f)
+        w.writerows(ret)
 
 
 def main():
     morphs = get_data(MORPHS_PATH)
-    futures = get_data(FUTURES_PATH)
-    print(morphs, futures)
+    clusters = get_cluster_data()
+    export_vectors(morphs, clusters)
+    export_normalized_future_vectors()
+    export_normalized_future_cluster_vectors()
 
 
 if __name__ == "__main__":
