@@ -80,7 +80,7 @@ def write_similarity():
 
 
 def main():
-    # write_similarity()
+    write_similarity()
     draw_chart()
 
 

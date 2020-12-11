@@ -15,7 +15,10 @@ def min_max_normalize(lst):
     normalized = []
 
     for v in lst:
-        normalized_num = (v - min(lst)) / (max(lst) - min(lst))
+        try:
+            normalized_num = (v - min(lst)) / (max(lst) - min(lst))
+        except ZeroDivisionError:
+            normalized_num = 0
 
         normalized.append(normalized_num)
 
@@ -114,10 +117,10 @@ def read_word_vector_docs():
 def main():
     df = read_word_vector_docs()
     draw_chart(df)
-    # del df["wv"]
-    # del df["tokens_len"]
-    # del df["tokens"]
-    # df.to_csv(os.path.join(OUTPUTS_DIR, "cluster-docs.csv"), index=False)
+    del df["wv"]
+    del df["tokens_len"]
+    del df["tokens"]
+    df.to_csv(os.path.join(OUTPUTS_DIR, "cluster-docs.csv"), index=False)
 
 
 if __name__ == "__main__":

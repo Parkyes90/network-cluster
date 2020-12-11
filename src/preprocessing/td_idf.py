@@ -46,13 +46,19 @@ def process_nouns(row):
         if nouns:
             noun_lines.append(" ".join(nouns))
     words = []
-    if len(noun_lines) > 1:
+    if len(noun_lines) > 300:
         try:
-            vectorizer.fit_transform(noun_lines)
-            for word in vectorizer.get_feature_names():
-                words.append(word)
+            train = vectorizer.fit_transform(noun_lines)
+            terms = vectorizer.get_feature_names()
+            sums = train.sum(axis=0)
+            for col, term in enumerate(terms):
+                words.append((term, sums[0, col]))
         except ValueError:
             pass
+    words.sort(key=lambda x: x[1], reverse=True)
+    words = [w[0] for w in words][:300]
+    print(len(noun_lines))
+
     return [*remain, " ".join(words)]
 
 
@@ -74,7 +80,7 @@ def process():
 
 
 def main():
-    # process()
+    process()
     remove_no_context_rows()
 
 

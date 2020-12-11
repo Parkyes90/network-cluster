@@ -11,6 +11,7 @@ gensim = "*"
 pandas = "*"
 bokeh = "*"
 pyvis = "*"
+parse = "*"
 
 [dev-packages]
 
