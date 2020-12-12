@@ -57,9 +57,6 @@ def process_nouns(row):
             pass
     words.sort(key=lambda x: x[1], reverse=True)
     words = [w[0] for w in words][:300]
-    print(remain, len(noun_lines))
-    if len(noun_lines) < 2:
-        print(words)
 
     return [*remain, " ".join(words)]
 
@@ -81,9 +78,33 @@ def process():
             w.writerow(doc)
 
 
+def write_reindex_raw_data():
+    raw_map = {}
+    with open(os.path.join(OUTPUTS_DIR, "news-papers.csv")) as f:
+        raw = list(csv.reader(f))
+        for r in raw[1:]:
+            raw_map[r[3]] = r
+    ret = [raw[0]]
+
+    with open(os.path.join(OUTPUTS_DIR, "filtered-word-vector-docs.csv")) as f:
+        reader = list(csv.reader(f))
+    for r in reader[1:]:
+        idx, *remain = r
+        ridx, *ra = raw_map[r[3]]
+        ret.append([idx, *ra])
+    with open(
+        os.path.join(OUTPUTS_DIR, "index-raw-papers.csv"),
+        "w",
+        encoding="utf-8",
+    ) as f:
+        w = csv.writer(f)
+        w.writerows(ret)
+
+
 def main():
-    process()
-    remove_no_context_rows()
+    # process()
+    # remove_no_context_rows()
+    write_reindex_raw_data()
 
 
 if __name__ == "__main__":

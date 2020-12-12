@@ -1,13 +1,17 @@
 import csv
+import math
 import os
 import pickle
+import sys
 from collections import defaultdict, OrderedDict
 from itertools import combinations
+from random import randint
+
 import numpy as np
 import pandas as pd
 from bokeh.core.property.dataspec import value
 from bokeh.io import show
-from bokeh.io.export import export_svg
+from bokeh.io.export import export_svg, export_png
 from bokeh.models import (
     ColumnDataSource,
     HoverTool,
@@ -29,6 +33,8 @@ KEYWORD_PATH = os.path.join(DATA_DIR, "keywords")
 
 FUTURES_PATH = os.path.join(DATA_DIR, "futures")
 
+csv.field_size_limit(sys.maxsize)
+
 
 def standard(arr):
     data = np.array(arr)
@@ -49,8 +55,10 @@ def get_data(path):
         detail_dir = os.listdir(os.path.join(path, directory))
         for filename in detail_dir:
             name, ext = filename.split(".csv")
-            df = pd.read_csv(os.path.join(path, directory, filename), header=0)
-
+            df = pd.read_csv(
+                os.path.join(path, directory, filename), header=0
+            ).dropna(axis=0)
+            words = df["형태소"].to_list()
             ret[name.split(".")[1].strip() if "." in name else name] = df[
                 "형태소"
             ].to_list()
@@ -74,6 +82,10 @@ def get_data(path):
 
 
 def export_vectors(morphs, cluster_data):
+    with open(
+        os.path.join(OUTPUTS_DIR, "index-raw-papers.csv"), encoding="utf-8",
+    ) as f:
+        raw_data = list(csv.reader(f))
     keys = list(morphs.keys())
     vector_header = []
     for i in range(0, len(keys), 2):
@@ -81,21 +93,21 @@ def export_vectors(morphs, cluster_data):
     header = ["index", "cate", "year", "title", "cluster", *vector_header]
     ret = [header]
     for item in cluster_data:
-        *remain, context, cluster = item
-        splited = set(context.split(" "))
+        idx, *remain, context, cluster, distance = item
+        raw = raw_data[int(idx)][4]
+
         temp = []
         for key, value in morphs.items():
             total = 0
             keywords = set(item for item in value)
-            for k in splited:
-                if k in keywords:
-                    total += 1
-            temp.append(total)
+            for k in keywords:
+                total += raw.count(k)
+            temp.append(math.sqrt(math.sqrt(total)))
         merge = []
         for i in range(0, len(temp), 2):
             merge.append(temp[i + 1] - temp[i])
 
-        ret.append([*remain, cluster, *merge])
+        ret.append([idx, *remain, cluster, *merge])
     with open(os.path.join(OUTPUTS_DIR, "future_vectors_raw.csv"), "w") as f:
         reader = csv.writer(f)
         reader.writerows(ret)
@@ -109,7 +121,7 @@ def export_normalized_future_vectors():
     for row in reader[1:]:
         _, _, _, _, _, *count = row
         for idx, v in enumerate(count):
-            ret[idx].append(int(v))
+            ret[idx].append(float(v))
     normals = []
     for r in ret:
         temp = min_max_normalize(r)
@@ -177,41 +189,18 @@ def draw_vectors():
         os.path.join(OUTPUTS_DIR, "normalized_future_vectors.csv")
     )
     comb = list(combinations(range(5, len(df.columns)), 2))
-    #
-    # df = read_word_vector_docs()
-    # tsne_filepath = "tsne3000.pkl"
-    # X = df["wv"].to_list()
-    # if not os.path.exists(tsne_filepath):
-    #     tsne = TSNE(random_state=42)
-    #     tsne_points = tsne.fit_transform(X)
-    #     with open(tsne_filepath, "wb+") as f:
-    #         pickle.dump(tsne_points, f)
-    # else:  # Cache Hits!
-    #     with open(tsne_filepath, "rb") as f:
-    #         tsne_points = pickle.load(f)
-    # print(tsne_points)
-    # tsne_df = pd.DataFrame(
-    #     tsne_points, index=range(len(X)), columns=["x_coord", "y_coord"]
-    # )
 
     for idx, coord in enumerate(comb, 1):
-        if idx == 2:
-            break
         x, y = coord
         X = df[df.columns[x]].to_list()
         Y = df[df.columns[y]].to_list()
-        TITLE = df["title"].to_list()
         tsne_df = pd.DataFrame(
             zip(X, Y), index=range(len(X)), columns=["x_coord", "y_coord"]
         )
-        sets = set()
-        for a, b, c in zip(X, Y, TITLE):
-            sets.add((a, b))
-            if (a, b) in sets:
-                print(a, b, c)
         tsne_df["title"] = df["title"].to_list()
         tsne_df["cluster_no"] = df["cluster"].to_list()
-        colormap = {0: "#ffee33", 1: "#00a152", 2: "#2979ff", 3: "#d500f9"}
+        colormap = {3: "#ffee33", 2: "#00a152", 1: "#2979ff", 0: "#d500f9"}
+
         colors = [colormap[x] for x in tsne_df["cluster_no"]]
         tsne_df["color"] = colors
         plot_data = ColumnDataSource(data=tsne_df.to_dict(orient="list"))
@@ -233,36 +222,36 @@ def draw_vectors():
             fill_color="color",
             line_color="color",
         )
-        # plot.yaxis.axis_label_text_font_size = value("25pt")
-        # plot.yaxis.major_label_text_font_size = value("25pt")
-        # plot.xaxis.axis_label_text_font_size = value("25pt")
-        # plot.xaxis.major_label_text_font_size = value("25pt")
-        # start_x, end_x = df.columns[x].split("|")
-        # start_y, end_y = df.columns[y].split("|")
-        # start_x = start_x.strip()
-        # end_x = end_x.strip()
-        # start_y = start_y.strip()
-        # end_y = end_y.strip()
-        # plot.title.text_font_size = value("32pt")
-        # plot.xaxis.visible = True
-        # # plot.xaxis.bounds = (0, 0)
-        # plot.yaxis.visible = True
-        # label_opts1 = dict(x_offset=0, y_offset=750, text_font_size="30px",)
-        # msg1 = end_y
-        # caption1 = Label(text=msg1, **label_opts1)
-        # label_opts2 = dict(x_offset=0, y_offset=-750, text_font_size="30px",)
-        # msg2 = start_y
-        # caption2 = Label(text=msg2, **label_opts2)
-        # label_opts3 = dict(x_offset=600, y_offset=0, text_font_size="30px",)
-        # msg3 = end_x
-        # caption3 = Label(text=msg3, **label_opts3)
-        # label_opts4 = dict(x_offset=-750, y_offset=0, text_font_size="30px",)
-        # msg4 = start_x
-        # caption4 = Label(text=msg4, **label_opts4)
-        # plot.add_layout(caption1, "center")
-        # plot.add_layout(caption2, "center")
-        # plot.add_layout(caption3, "center")
-        # plot.add_layout(caption4, "center")
+        plot.yaxis.axis_label_text_font_size = "25pt"
+        plot.yaxis.major_label_text_font_size = "25pt"
+        plot.xaxis.axis_label_text_font_size = "25pt"
+        plot.xaxis.major_label_text_font_size = "25pt"
+        start_x, end_x = df.columns[x].split("|")
+        start_y, end_y = df.columns[y].split("|")
+        start_x = start_x.strip()
+        end_x = end_x.strip()
+        start_y = start_y.strip()
+        end_y = end_y.strip()
+        plot.title.text_font_size = value("32pt")
+        plot.xaxis.visible = True
+        # plot.xaxis.bounds = (0, 0)
+        plot.yaxis.visible = True
+        label_opts1 = dict(x_offset=0, y_offset=750, text_font_size="30px",)
+        msg1 = end_y
+        caption1 = Label(text=msg1, **label_opts1)
+        label_opts2 = dict(x_offset=0, y_offset=-750, text_font_size="30px",)
+        msg2 = start_y
+        caption2 = Label(text=msg2, **label_opts2)
+        label_opts3 = dict(x_offset=600, y_offset=0, text_font_size="30px",)
+        msg3 = end_x
+        caption3 = Label(text=msg3, **label_opts3)
+        label_opts4 = dict(x_offset=-750, y_offset=0, text_font_size="30px",)
+        msg4 = start_x
+        caption4 = Label(text=msg4, **label_opts4)
+        plot.add_layout(caption1, "center")
+        plot.add_layout(caption2, "center")
+        plot.add_layout(caption3, "center")
+        plot.add_layout(caption4, "center")
         plot.background_fill_color = None
         plot.border_fill_color = None
         plot.grid.grid_line_color = None
@@ -279,17 +268,17 @@ def draw_vectors():
             height=1600,
             width=1600,
         )
-        # export_png(
-        #     plot,
-        #     filename=f"pngs/{idx}.png",
-        #     webdriver=driver,
-        #     height=1600,
-        #     width=1600,
-        # )
-        show(plot)
+        export_png(
+            plot,
+            filename=f"pngs/{idx}.png",
+            webdriver=driver,
+            height=1600,
+            width=1600,
+        )
+        # show(plot)
 
 
-def export_distance_from_cluster():
+def export_distance_from_cluster(cluster_data):
     with open(os.path.join(OUTPUTS_DIR, "network-detail-draw.csv")) as f:
         network = list(csv.reader(f))
     with open(os.path.join(OUTPUTS_DIR, "normalized_future_vectors.csv")) as f:
@@ -298,10 +287,8 @@ def export_distance_from_cluster():
         os.path.join(OUTPUTS_DIR, "normalized_future_cluster_vectors.csv")
     ) as f:
         clusters = list(csv.reader(f))
-    added_header = [f"{h} distance from cluster" for h in docs[0][5:]]
-    header = docs[0] + added_header + ["connected_node_count"]
+    header = docs[0] + ["connected_node_count", "distance_from_cluster"]
     ret = [header]
-
     cluster_map = OrderedDict()
     _, _, *cs = clusters[0]
     for c in cs:
@@ -315,11 +302,7 @@ def export_distance_from_cluster():
             cluster_map[keys[idx]].append(value)
     for row in docs[1:]:
         index, cate, year, title, cluster, *vs = row
-        distances = []
-        for i, value in enumerate(vs):
-            distances.append(
-                abs(float(cluster_map[cluster][i]) - float(value))
-            )
+        print(index)
         ret.append(
             [
                 index,
@@ -328,8 +311,8 @@ def export_distance_from_cluster():
                 title,
                 cluster,
                 *vs,
-                *distances,
                 network[int(index)][3],
+                cluster_data[int(index) - 1][6],
             ]
         )
     with open(
@@ -345,13 +328,13 @@ def export_distance_from_cluster():
 
 def main():
     # morphs = get_data(KEYWORD_PATH)
-    # clusters = get_cluster_data()
+    clusters = get_cluster_data()
     # export_vectors(morphs, clusters)
     # export_normalized_future_vectors()
     # export_normalized_future_cluster_vectors()
-    # export_distance_from_cluster()
+    export_distance_from_cluster(clusters)
     # export_comb(morphs)
-    draw_vectors()
+    # draw_vectors()
 
 
 if __name__ == "__main__":

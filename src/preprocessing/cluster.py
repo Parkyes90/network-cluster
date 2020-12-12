@@ -128,12 +128,24 @@ def read_word_vector_docs():
     kmeans_clustering = KMeans(n_clusters=num_clusters)
     idx = kmeans_clustering.fit_predict(word_vectors)
     df["cluster"] = idx
+    centroids = kmeans_clustering.cluster_centers_
+    distances = []
+    # print(word_vectors)
+    for idx, i in enumerate(idx):
+        center = centroids[i]
+        # mean_distance = np.mean(center,)
+        # print(mean_distance)
+        distance = 1 - np.dot(center, word_vectors[idx]) / (
+            np.linalg.norm(center) * np.linalg.norm(word_vectors[idx])
+        )
+        distances.append(distance)
+    df["distance_from_cluster"] = distances
     return df
 
 
 def main():
     df = read_word_vector_docs()
-    draw_chart(df)
+    # draw_chart(df)
     del df["wv"]
     del df["tokens_len"]
     del df["tokens"]

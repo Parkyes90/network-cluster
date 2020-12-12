@@ -19,10 +19,10 @@ csv.field_size_limit(sys.maxsize)
 def draw_network():
     colors = []
     color_map = {
-        "0": "#ffee33",
-        "1": "#00a152",
-        "2": "#2979ff",
-        "3": "#d500f9",
+        "3": "#ffee33",
+        "2": "#00a152",
+        "1": "#2979ff",
+        "0": "#d500f9",
     }
 
     node_sizes = []
@@ -60,7 +60,7 @@ def draw_network():
     options = {
         "node_size": node_sizes,
         "linewidths": 0,
-        "alpha": 0.6,
+        "alpha": 0.8,
         "node_color": colors,
     }
     pos = nx.spring_layout(G, k=0.05, iterations=10)
@@ -70,11 +70,11 @@ def draw_network():
         source, target = edge
         rad = 0.2
         arrowprops = dict(
-            linewidth=0.1,
+            linewidth=0.2,
             arrowstyle="-",
             color=edge_colors[idx],
             connectionstyle=f"arc3,rad={rad}",
-            alpha=0.5,
+            alpha=0.1,
         )
         ax.annotate(
             "", xy=pos[source], xytext=pos[target], arrowprops=arrowprops
@@ -83,8 +83,8 @@ def draw_network():
     nx.draw_networkx_nodes(G, pos, **options)
 
     plt.axis("off")
-    plt.savefig("network.svg", dpi=400, format="svg")
-    plt.savefig("network.png", dpi=400, format="png")
+    plt.savefig("network.svg", format="svg")
+    plt.savefig("network.png", format="png")
     plt.show()
 
 
@@ -129,14 +129,14 @@ def write_similarity():
         reader = list(csv.reader(f))
         reader.pop(0)
         for row in reader:
-            *remain, context, cluster = row
+            *remain, context, cluster, cluster_distance = row
             docs.append(context)
     tfidf = vect.fit_transform(docs)
     matrix = (tfidf * tfidf.T).A
     listed = matrix.tolist()
     for row in listed:
         df = pd.DataFrame({"index": range(len(row)), "value": row})
-        sort = df.sort_values(by="value", ascending=False).head(6)
+        sort = df.sort_values(by="value", ascending=False).head(10)
         top5 = set(sort.index.tolist())
         for i in range(len(row)):
             if i not in top5:
