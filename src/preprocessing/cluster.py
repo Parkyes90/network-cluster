@@ -1,7 +1,9 @@
 import os
 import pandas as pd
 import numpy as np
+from bokeh.io.export import export_svg, export_png
 from gensim.models import Word2Vec
+from selenium import webdriver
 from sklearn.cluster import KMeans
 from sklearn.manifold import TSNE
 from src.config.settings import BASE_DIR, OUTPUTS_DIR
@@ -48,6 +50,7 @@ def get_sentence_mean_vector(morphs):
 
 
 def draw_chart(df):
+    driver = webdriver.Chrome(os.path.join(BASE_DIR, "chromedriver"))
     X = df["wv"].to_list()
     y = df["cluster"].to_list()
     tsne_filepath = "tsne3000.pkl"
@@ -60,7 +63,6 @@ def draw_chart(df):
     else:  # Cache Hits!
         with open(tsne_filepath, "rb") as f:
             tsne_points = pickle.load(f)
-    print(tsne_points)
     tsne_df = pd.DataFrame(
         tsne_points, index=range(len(X)), columns=["x_coord", "y_coord"]
     )
@@ -72,22 +74,22 @@ def draw_chart(df):
     colors = [colormap[x] for x in tsne_df["cluster_no"]]
     tsne_df["color"] = colors
     normalized = min_max_normalize(tsne_df.tokens_len.to_list())
-    tsne_df["radius"] = [10 + x * 10 for x in normalized]
+    tsne_df["radius"] = [5 + x * 10 for x in normalized]
     plot_data = ColumnDataSource(data=tsne_df.to_dict(orient="list"))
     tsne_plot = figure(
         # title='TSNE Twitter BIO Embeddings',
-        plot_width=650,
-        plot_height=650,
+        plot_width=1200,
+        plot_height=1200,
         active_scroll="wheel_zoom",
-        output_backend="webgl",
+        output_backend="svg",
     )
     tsne_plot.add_tools(HoverTool(tooltips="@title"))
     tsne_plot.circle(
         source=plot_data,
         x="x_coord",
         y="y_coord",
-        line_alpha=0.9,
-        fill_alpha=0.8,
+        line_alpha=0.6,
+        fill_alpha=0.6,
         size="radius",
         fill_color="color",
         line_color="color",
@@ -95,9 +97,21 @@ def draw_chart(df):
     tsne_plot.title.text_font_size = value("16pt")
     tsne_plot.xaxis.visible = True
     tsne_plot.yaxis.visible = True
+    tsne_plot.background_fill_color = None
+    tsne_plot.border_fill_color = None
+    tsne_plot.grid.grid_line_color = None
+    tsne_plot.outline_line_color = None
     # tsne_plot.grid.grid_line_color = None
     # tsne_plot.outline_line_color = None
     show(tsne_plot)
+    tsne_plot.toolbar.logo = None
+    tsne_plot.toolbar_location = None
+    export_svg(
+        tsne_plot, filename=f"cluster.svg", webdriver=driver,
+    )
+    export_png(
+        tsne_plot, filename=f"cluster.png", webdriver=driver,
+    )
 
 
 def read_word_vector_docs():

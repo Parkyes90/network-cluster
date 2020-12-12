@@ -46,7 +46,7 @@ def process_nouns(row):
         if nouns:
             noun_lines.append(" ".join(nouns))
     words = []
-    if len(noun_lines) > 300:
+    if len(noun_lines) > 0:
         try:
             train = vectorizer.fit_transform(noun_lines)
             terms = vectorizer.get_feature_names()
@@ -58,6 +58,8 @@ def process_nouns(row):
     words.sort(key=lambda x: x[1], reverse=True)
     words = [w[0] for w in words][:300]
     print(remain, len(noun_lines))
+    if len(noun_lines) < 2:
+        print(words)
 
     return [*remain, " ".join(words)]
 
