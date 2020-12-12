@@ -69,7 +69,7 @@ def apply_index_to_csv():
 
 
 def main():
-    # to_csv()
+    to_csv()
     apply_index_to_csv()
 
 
