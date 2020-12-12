@@ -13,7 +13,7 @@ otk = Okt()
 
 
 def get_papers():
-    with open(os.path.join(OUTPUTS_DIR, "index-papers.csv")) as f:
+    with open(os.path.join(OUTPUTS_DIR, "news-papers.csv")) as f:
         reader = csv.reader(f)
         return list(reader)
 
@@ -57,7 +57,7 @@ def process_nouns(row):
             pass
     words.sort(key=lambda x: x[1], reverse=True)
     words = [w[0] for w in words][:300]
-    print(len(noun_lines))
+    print(remain, len(noun_lines))
 
     return [*remain, " ".join(words)]
 

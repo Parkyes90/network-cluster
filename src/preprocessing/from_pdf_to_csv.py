@@ -19,12 +19,17 @@ def walk_papers(year):
 
 def read_pdf(path):
     file = open(path, "rb")
-    pdf = pdftotext.PDF(file)
-    text = ""
-    for page in pdf:
-        text += page
-    file.close()
-    return text
+    try:
+        pdf = pdftotext.PDF(file)
+        text = ""
+        for page in pdf:
+            text += page
+        file.close()
+        return text
+    except pdftotext.Error:
+        print(file, "unlock")
+
+        return ""
 
 
 def write_row(item):
@@ -32,6 +37,7 @@ def write_row(item):
     paper = str(paper)
     path = os.path.join(PAPERS_DIR, year, paper)
     title = paper.split(".")[0]
+    print(title)
     context = read_pdf(path)
     context = re.sub(r"\(cid:\d{1,10}\)", "", context)
     return ["논문", year, title, context]
