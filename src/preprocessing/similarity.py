@@ -4,27 +4,93 @@ import sys
 from collections import defaultdict
 
 from pyvis.network import Network
+import matplotlib.pyplot as plt
 
-import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 from src.config.settings import OUTPUTS_DIR
 from src.preprocessing.cluster import min_max_normalize
-import networkx as nx
-from networkx.drawing.nx_pydot import graphviz_layout
 import pandas as pd
+import networkx as nx
 
 csv.field_size_limit(sys.maxsize)
 
 
-def draw_chart_with_networkx():
-    df = pd.read_csv(os.path.join(OUTPUTS_DIR, "for-network-draw.csv"))
-    print(df)
+def draw_network():
+    colors = []
+    color_map = {
+        "0": "#ffee33",
+        "1": "#00a152",
+        "2": "#2979ff",
+        "3": "#d500f9",
+    }
+
+    node_sizes = []
+
+    edge_colors = []
+    with open(os.path.join(OUTPUTS_DIR, "for-network-draw.csv")) as f:
+        reader = list(csv.reader(f))
+    nodes = {(r[1], r[3], r[5]) for r in reader[1:]}
+    G = nx.Graph()
+    normalized = []
+    nodes = list(nodes)
+    for _, _, source_connected_count in nodes:
+        normalized.append(int(source_connected_count))
+    normalized = min_max_normalize(normalized)
+    for idx, remain in enumerate(nodes):
+        node, cluster, _ = remain
+        G.add_node(node)
+        colors.append(color_map[cluster])
+        node_sizes.append(20 + 100 * normalized[idx])
+    st_color_map = {}
+    for row in reader[1:]:
+        (
+            index,
+            source,
+            destination,
+            source_cluster,
+            destination_cluster,
+            source_connected_count,
+        ) = row
+        st_color_map[f"{source}-{destination}"] = color_map[
+            destination_cluster
+        ]
+        G.add_edge(source, destination)
+        edge_colors.append(color_map[destination_cluster])
+    options = {
+        "node_size": node_sizes,
+        "linewidths": 0,
+        "alpha": 0.6,
+        "node_color": colors,
+    }
+    pos = nx.spring_layout(G, k=0.05, iterations=10)
+    plt.figure(figsize=(12, 12))
+    ax = plt.gca()
+    for idx, edge in enumerate(G.edges()):
+        source, target = edge
+        rad = 0.2
+        arrowprops = dict(
+            linewidth=0.1,
+            arrowstyle="-",
+            color=edge_colors[idx],
+            connectionstyle=f"arc3,rad={rad}",
+            alpha=0.5,
+        )
+        ax.annotate(
+            "", xy=pos[source], xytext=pos[target], arrowprops=arrowprops
+        )
+
+    nx.draw_networkx_nodes(G, pos, **options)
+
+    plt.axis("off")
+    plt.savefig("network.svg", dpi=400, format="svg")
+    plt.savefig("network.png", dpi=400, format="png")
+    plt.show()
 
 
 def draw_chart():
-    net = Network("1600px", "1600px", bgcolor="#22222")
-    colors = {"0": "#3f51b5", "1": "#f44336", "2": "#651fff", "3": "#00e5ff"}
+    net = Network("1200px", "1200px", bgcolor="#22222")
+    colors = {"0": "#2196f3", "1": "#ffeb3b", "2": "#4caf50", "3": "#f44336"}
     with open(os.path.join(OUTPUTS_DIR, "similarity.csv")) as f:
         reader = list(csv.reader(f))
         reader.pop(0)
@@ -52,7 +118,8 @@ def draw_chart():
                 net.add_edge(index, str(idx), color=end_color, weight=float(r))
     net.set_edge_smooth("dynamic")
     net.show_buttons(filter_=["physics"])
-    net.show("nx.html")
+    # net.show("nx.html")
+    net.show("nx.svg")
 
 
 def write_similarity():
@@ -136,7 +203,8 @@ def write_network():
 def main():
     # write_similarity()
     # write_network()
-    draw_chart_with_networkx()
+    # draw_chart()
+    draw_network()
 
 
 if __name__ == "__main__":

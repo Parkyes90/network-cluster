@@ -1,6 +1,6 @@
 import csv
 import os
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from itertools import combinations
 import numpy as np
 import pandas as pd
@@ -10,6 +10,8 @@ from bokeh.models import (
     ColumnDataSource,
     HoverTool,
     Label,
+    SingleIntervalTicker,
+    LinearAxis,
 )
 from bokeh.plotting import figure
 from selenium import webdriver
@@ -22,6 +24,8 @@ format_string = "{}. {}_result.csv"
 options = Options()
 options.add_argument("--headless")
 MORPHS_PATH = os.path.join(DATA_DIR, "morphs")
+KEYWORD_PATH = os.path.join(DATA_DIR, "keywords")
+
 FUTURES_PATH = os.path.join(DATA_DIR, "futures")
 
 
@@ -38,20 +42,33 @@ def get_cluster_data():
 
 def get_data(path):
     ret = {}
-    vectors = []
-    with open(os.path.join(FUTURES_PATH, "future_vector.csv")) as f:
-        for vector in list(csv.reader(f))[1:]:
-            merged = [f"{vector[0].strip()}: {v.strip()}" for v in vector]
-            vectors += merged[1:]
-    files = os.listdir(path)
-    files = [
-        file for file in files if all(["euckr" not in file, "공통" not in file])
-    ]
-    files.sort()
-    for idx, filename in enumerate(files):
-        with open(os.path.join(path, filename)) as f:
-            reader = list(csv.reader(f))[1:]
-            ret[vectors[idx].strip()] = reader
+    dirs = os.listdir(path)
+    dirs.sort()
+    for directory in dirs:
+        detail_dir = os.listdir(os.path.join(path, directory))
+        for filename in detail_dir:
+            name, ext = filename.split(".csv")
+            df = pd.read_csv(os.path.join(path, directory, filename), header=0)
+
+            ret[name.split(".")[1].strip() if "." in name else name] = df[
+                "형태소"
+            ].to_list()
+
+    # ret = {}
+    # vectors = []
+    # with open(os.path.join(FUTURES_PATH, "future_vector.csv")) as f:
+    #     for vector in list(csv.reader(f))[1:]:
+    #         merged = [f"{vector[0].strip()}: {v.strip()}" for v in vector]
+    #         vectors += merged[1:]
+    # files = os.listdir(path)
+    # files = [
+    #     file for file in files if all(["euckr" not in file, "공통" not in file])
+    # ]
+    # files.sort()
+    # for idx, filename in enumerate(files):
+    #     with open(os.path.join(path, filename)) as f:
+    #         reader = list(csv.reader(f))[1:]
+    #         ret[vectors[idx].strip()] = reader
     return ret
 
 
@@ -68,7 +85,7 @@ def export_vectors(morphs, cluster_data):
         temp = []
         for key, value in morphs.items():
             total = 0
-            keywords = set(item[0] for item in value)
+            keywords = set(item for item in value)
             for k in splited:
                 if k in keywords:
                     total += 1
@@ -124,7 +141,7 @@ def export_normalized_future_cluster_vectors():
         temp = [i, origin_header[idx]]
         dic = defaultdict(list)
         for row in reader[1:]:
-            dic[row[4]].append(float(row[idx]))
+            dic[row[4]].append(float(row[idx]) * (int(row[2]) - 1994) / 26)
         for key in dic.keys():
             dic[key] = sum(dic[key]) / len(dic[key])
         for c in clusters:
@@ -188,7 +205,7 @@ def draw_vectors():
             y="y_coord",
             line_alpha=0.9,
             fill_alpha=0.8,
-            size=30,
+            size=10,
             fill_color="color",
             line_color="color",
         )
@@ -198,10 +215,10 @@ def draw_vectors():
         plot.xaxis.major_label_text_font_size = "25pt"
         start_x, end_x = df.columns[x].split("|")
         start_y, end_y = df.columns[y].split("|")
-        start_x = start_x.split(":")[1].strip()
-        end_x = end_x.split(":")[1].strip()
-        start_y = start_y.split(":")[1].strip()
-        end_y = end_y.split(":")[1].strip()
+        start_x = start_x.strip()
+        end_x = end_x.strip()
+        start_y = start_y.strip()
+        end_y = end_y.strip()
         plot.title.text_font_size = value("32pt")
         plot.xaxis.visible = True
         # plot.xaxis.bounds = (0, 0)
@@ -218,7 +235,6 @@ def draw_vectors():
         label_opts4 = dict(x_offset=-750, y_offset=0, text_font_size="30px",)
         msg4 = start_x
         caption4 = Label(text=msg4, **label_opts4)
-
         plot.add_layout(caption1, "center")
         plot.add_layout(caption2, "center")
         plot.add_layout(caption3, "center")
@@ -230,32 +246,86 @@ def draw_vectors():
         plot.yaxis.fixed_location = 0
         plot.xaxis.fixed_location = 0
         print(idx)
-        # export_svg(
-        #     plot,
-        #     filename=f"svgs/{idx}.svg",
-        #     webdriver=driver,
-        #     height=1600,
-        #     width=1600,
-        # )
-        export_png(
+        export_svg(
             plot,
-            filename=f"pngs/{idx}.png",
+            filename=f"svgs/{idx}.svg",
             webdriver=driver,
             height=1600,
             width=1600,
         )
+        # export_png(
+        #     plot,
+        #     filename=f"pngs/{idx}.png",
+        #     webdriver=driver,
+        #     height=1600,
+        #     width=1600,
+        # )
         # show(plot)
 
 
-def main():
-    #     # morphs = get_data(MORPHS_PATH)
-    #     # clusters = get_cluster_data()
-    #     # export_vectors(morphs, clusters)
-    #     # export_normalized_future_vectors()
-    # export_normalized_future_cluster_vectors()
+def export_distance_from_cluster():
+    with open(os.path.join(OUTPUTS_DIR, "network-detail-draw.csv")) as f:
+        network = list(csv.reader(f))
+    with open(os.path.join(OUTPUTS_DIR, "normalized_future_vectors.csv")) as f:
+        docs = list(csv.reader(f))
+    with open(
+        os.path.join(OUTPUTS_DIR, "normalized_future_cluster_vectors.csv")
+    ) as f:
+        clusters = list(csv.reader(f))
+    added_header = [f"{h} distance from cluster" for h in docs[0][5:]]
+    header = docs[0] + added_header + ["connected_node_count"]
+    ret = [header]
 
-    #     # export_comb(morphs)
-    draw_vectors()
+    cluster_map = OrderedDict()
+    _, _, *cs = clusters[0]
+    for c in cs:
+        cluster_map[c] = []
+        # _, *cs = k
+    keys = list(cluster_map.keys())
+    # print(cluster_map)
+    for row in clusters[1:]:
+        _, _, *idxs = row
+        for idx, value in enumerate(idxs):
+            cluster_map[keys[idx]].append(value)
+    for row in docs[1:]:
+        index, cate, year, title, cluster, *vs = row
+        distances = []
+        for i, value in enumerate(vs):
+            distances.append(
+                abs(float(cluster_map[cluster][i]) - float(value))
+            )
+        ret.append(
+            [
+                index,
+                cate,
+                year,
+                title,
+                cluster,
+                *vs,
+                *distances,
+                network[int(index)][3],
+            ]
+        )
+    with open(
+        os.path.join(
+            OUTPUTS_DIR,
+            "normalized_future_vectors_with_distance_from_cluster.csv",
+        ),
+        "w",
+    ) as f:
+        w = csv.writer(f)
+        w.writerows(ret)
+
+
+def main():
+    # morphs = get_data(KEYWORD_PATH)
+    # clusters = get_cluster_data()
+    # export_vectors(morphs, clusters)
+    # export_normalized_future_vectors()
+    # export_normalized_future_cluster_vectors()
+    export_distance_from_cluster()
+    # export_comb(morphs)
+    # draw_vectors()ㅜ
 
 
 if __name__ == "__main__":

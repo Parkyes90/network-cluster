@@ -14,6 +14,8 @@ pyvis = "*"
 parse = "*"
 selenium = "*"
 requests = "*"
+matplotlib = "*"
+xlrd = "==1.2.0"
 
 [dev-packages]
 
