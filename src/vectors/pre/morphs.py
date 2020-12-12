@@ -1,24 +1,25 @@
 import csv
 import os
+import pickle
 from collections import defaultdict, OrderedDict
 from itertools import combinations
 import numpy as np
 import pandas as pd
 from bokeh.core.property.dataspec import value
-from bokeh.io.export import export_svg, export_png
+from bokeh.io import show
+from bokeh.io.export import export_svg
 from bokeh.models import (
     ColumnDataSource,
     HoverTool,
     Label,
-    SingleIntervalTicker,
-    LinearAxis,
 )
 from bokeh.plotting import figure
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from sklearn.manifold import TSNE
 
 from src.config.settings import DATA_DIR, OUTPUTS_DIR, BASE_DIR
-from src.preprocessing.cluster import min_max_normalize
+from src.preprocessing.cluster import min_max_normalize, read_word_vector_docs
 
 format_string = "{}. {}_result.csv"
 options = Options()
@@ -176,15 +177,38 @@ def draw_vectors():
         os.path.join(OUTPUTS_DIR, "normalized_future_vectors.csv")
     )
     comb = list(combinations(range(5, len(df.columns)), 2))
+    #
+    # df = read_word_vector_docs()
+    # tsne_filepath = "tsne3000.pkl"
+    # X = df["wv"].to_list()
+    # if not os.path.exists(tsne_filepath):
+    #     tsne = TSNE(random_state=42)
+    #     tsne_points = tsne.fit_transform(X)
+    #     with open(tsne_filepath, "wb+") as f:
+    #         pickle.dump(tsne_points, f)
+    # else:  # Cache Hits!
+    #     with open(tsne_filepath, "rb") as f:
+    #         tsne_points = pickle.load(f)
+    # print(tsne_points)
+    # tsne_df = pd.DataFrame(
+    #     tsne_points, index=range(len(X)), columns=["x_coord", "y_coord"]
+    # )
 
     for idx, coord in enumerate(comb, 1):
+        if idx == 2:
+            break
         x, y = coord
         X = df[df.columns[x]].to_list()
         Y = df[df.columns[y]].to_list()
-
+        TITLE = df["title"].to_list()
         tsne_df = pd.DataFrame(
             zip(X, Y), index=range(len(X)), columns=["x_coord", "y_coord"]
         )
+        sets = set()
+        for a, b, c in zip(X, Y, TITLE):
+            sets.add((a, b))
+            if (a, b) in sets:
+                print(a, b, c)
         tsne_df["title"] = df["title"].to_list()
         tsne_df["cluster_no"] = df["cluster"].to_list()
         colormap = {0: "#ffee33", 1: "#00a152", 2: "#2979ff", 3: "#d500f9"}
@@ -203,48 +227,50 @@ def draw_vectors():
             source=plot_data,
             x="x_coord",
             y="y_coord",
-            line_alpha=0.9,
-            fill_alpha=0.8,
-            size=10,
+            line_alpha=0.6,
+            fill_alpha=0.6,
+            size=20,
             fill_color="color",
             line_color="color",
         )
-        plot.yaxis.axis_label_text_font_size = "25pt"
-        plot.yaxis.major_label_text_font_size = "25pt"
-        plot.xaxis.axis_label_text_font_size = "25pt"
-        plot.xaxis.major_label_text_font_size = "25pt"
-        start_x, end_x = df.columns[x].split("|")
-        start_y, end_y = df.columns[y].split("|")
-        start_x = start_x.strip()
-        end_x = end_x.strip()
-        start_y = start_y.strip()
-        end_y = end_y.strip()
-        plot.title.text_font_size = value("32pt")
-        plot.xaxis.visible = True
-        # plot.xaxis.bounds = (0, 0)
-        plot.yaxis.visible = True
-        label_opts1 = dict(x_offset=0, y_offset=750, text_font_size="30px",)
-        msg1 = end_y
-        caption1 = Label(text=msg1, **label_opts1)
-        label_opts2 = dict(x_offset=0, y_offset=-750, text_font_size="30px",)
-        msg2 = start_y
-        caption2 = Label(text=msg2, **label_opts2)
-        label_opts3 = dict(x_offset=600, y_offset=0, text_font_size="30px",)
-        msg3 = end_x
-        caption3 = Label(text=msg3, **label_opts3)
-        label_opts4 = dict(x_offset=-750, y_offset=0, text_font_size="30px",)
-        msg4 = start_x
-        caption4 = Label(text=msg4, **label_opts4)
-        plot.add_layout(caption1, "center")
-        plot.add_layout(caption2, "center")
-        plot.add_layout(caption3, "center")
-        plot.add_layout(caption4, "center")
+        # plot.yaxis.axis_label_text_font_size = value("25pt")
+        # plot.yaxis.major_label_text_font_size = value("25pt")
+        # plot.xaxis.axis_label_text_font_size = value("25pt")
+        # plot.xaxis.major_label_text_font_size = value("25pt")
+        # start_x, end_x = df.columns[x].split("|")
+        # start_y, end_y = df.columns[y].split("|")
+        # start_x = start_x.strip()
+        # end_x = end_x.strip()
+        # start_y = start_y.strip()
+        # end_y = end_y.strip()
+        # plot.title.text_font_size = value("32pt")
+        # plot.xaxis.visible = True
+        # # plot.xaxis.bounds = (0, 0)
+        # plot.yaxis.visible = True
+        # label_opts1 = dict(x_offset=0, y_offset=750, text_font_size="30px",)
+        # msg1 = end_y
+        # caption1 = Label(text=msg1, **label_opts1)
+        # label_opts2 = dict(x_offset=0, y_offset=-750, text_font_size="30px",)
+        # msg2 = start_y
+        # caption2 = Label(text=msg2, **label_opts2)
+        # label_opts3 = dict(x_offset=600, y_offset=0, text_font_size="30px",)
+        # msg3 = end_x
+        # caption3 = Label(text=msg3, **label_opts3)
+        # label_opts4 = dict(x_offset=-750, y_offset=0, text_font_size="30px",)
+        # msg4 = start_x
+        # caption4 = Label(text=msg4, **label_opts4)
+        # plot.add_layout(caption1, "center")
+        # plot.add_layout(caption2, "center")
+        # plot.add_layout(caption3, "center")
+        # plot.add_layout(caption4, "center")
         plot.background_fill_color = None
         plot.border_fill_color = None
         plot.grid.grid_line_color = None
         plot.outline_line_color = None
         plot.yaxis.fixed_location = 0
         plot.xaxis.fixed_location = 0
+        plot.toolbar.logo = None
+        plot.toolbar_location = None
         print(idx)
         export_svg(
             plot,
@@ -260,7 +286,7 @@ def draw_vectors():
         #     height=1600,
         #     width=1600,
         # )
-        # show(plot)
+        show(plot)
 
 
 def export_distance_from_cluster():
@@ -323,9 +349,9 @@ def main():
     # export_vectors(morphs, clusters)
     # export_normalized_future_vectors()
     # export_normalized_future_cluster_vectors()
-    export_distance_from_cluster()
+    # export_distance_from_cluster()
     # export_comb(morphs)
-    # draw_vectors()ㅜ
+    draw_vectors()
 
 
 if __name__ == "__main__":

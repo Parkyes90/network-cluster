@@ -75,7 +75,9 @@ def draw_chart(df):
     tsne_df["color"] = colors
     normalized = min_max_normalize(tsne_df.tokens_len.to_list())
     tsne_df["radius"] = [5 + x * 10 for x in normalized]
+    print(tsne_df.to_dict(orient="list"))
     plot_data = ColumnDataSource(data=tsne_df.to_dict(orient="list"))
+    print(plot_data)
     tsne_plot = figure(
         # title='TSNE Twitter BIO Embeddings',
         plot_width=1200,
