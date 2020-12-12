@@ -1,27 +1,26 @@
 import csv
 import os
+from collections import defaultdict
 from itertools import combinations
 import numpy as np
 import pandas as pd
 from bokeh.core.property.dataspec import value
-from bokeh.io import show, export_png
-from bokeh.io.export import export_svg
+from bokeh.io.export import export_svg, export_png
 from bokeh.models import (
     ColumnDataSource,
     HoverTool,
-    LinearAxis,
-    Range1d,
     Label,
-    LabelSet,
 )
 from bokeh.plotting import figure
 from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 
 from src.config.settings import DATA_DIR, OUTPUTS_DIR, BASE_DIR
 from src.preprocessing.cluster import min_max_normalize
 
 format_string = "{}. {}_result.csv"
-
+options = Options()
+options.add_argument("--headless")
 MORPHS_PATH = os.path.join(DATA_DIR, "morphs")
 FUTURES_PATH = os.path.join(DATA_DIR, "futures")
 
@@ -111,27 +110,28 @@ def export_normalized_future_vectors():
 
 
 def export_normalized_future_cluster_vectors():
-    cluster_map = {}
+
+    clusters = set()
     with open(os.path.join(OUTPUTS_DIR, "normalized_future_vectors.csv")) as f:
         reader = list(csv.reader(f))
     for row in reader[1:]:
-        if row[4] not in cluster_map:
-            cluster_map[row[4]] = {}
-        for idx, value in enumerate(row[5:]):
-            if idx not in cluster_map[row[4]]:
-                cluster_map[row[4]][idx] = []
-            cluster_map[row[4]][idx].append(float(value))
-    keys = list(cluster_map.keys())
-    ret = [[key] for key in keys]
-    for idx in range(len(reader[0]) - 5):
-        normals = []
-        for value in cluster_map.values():
-            normals.append(sum(value[idx]) / len(value[idx]))
-        normals = min_max_normalize(normals)
-        normals = [(n - 0.5) * 2 for n in normals]
-        for i, v in enumerate(normals):
-            ret[i].append(v)
-    ret.insert(0, ["cluster", *reader[0][5:]])
+        clusters.add(row[4])
+    clusters = list(clusters)
+    header = ["index", "미래벡터", *clusters]
+    origin_header = reader[0]
+    ret = [header]
+    for i, idx in enumerate(range(5, len(origin_header))):
+        temp = [i, origin_header[idx]]
+        dic = defaultdict(list)
+        for row in reader[1:]:
+            dic[row[4]].append(float(row[idx]))
+        for key in dic.keys():
+            dic[key] = sum(dic[key]) / len(dic[key])
+        for c in clusters:
+            temp.append(dic[c])
+        ret.append(temp)
+
+    # ret.insert(0, ["cluster", *reader[0][5:]])
     with open(
         os.path.join(OUTPUTS_DIR, "normalized_future_cluster_vectors.csv"), "w"
     ) as f:
@@ -151,7 +151,9 @@ def export_comb(morphs):
 
 
 def draw_vectors():
-    driver = webdriver.Chrome(os.path.join(BASE_DIR, "chromedriver"))
+    driver = webdriver.Chrome(
+        os.path.join(BASE_DIR, "chromedriver"), options=options
+    )
 
     df = pd.read_csv(
         os.path.join(OUTPUTS_DIR, "normalized_future_vectors.csv")
@@ -177,7 +179,7 @@ def draw_vectors():
             plot_width=1600,
             plot_height=1600,
             active_scroll="wheel_zoom",
-            output_backend="canvas",
+            output_backend="svg",
         )
         plot.add_tools(HoverTool(tooltips="@title"))
         plot.circle(
@@ -221,36 +223,38 @@ def draw_vectors():
         plot.add_layout(caption2, "center")
         plot.add_layout(caption3, "center")
         plot.add_layout(caption4, "center")
-
+        plot.background_fill_color = None
+        plot.border_fill_color = None
         plot.grid.grid_line_color = None
         plot.outline_line_color = None
         plot.yaxis.fixed_location = 0
         plot.xaxis.fixed_location = 0
-
-        export_svg(
-            plot,
-            filename=f"{idx}.svg",
-            webdriver=driver,
-            height=1600,
-            width=1600,
-        )
+        print(idx)
+        # export_svg(
+        #     plot,
+        #     filename=f"svgs/{idx}.svg",
+        #     webdriver=driver,
+        #     height=1600,
+        #     width=1600,
+        # )
         export_png(
             plot,
-            filename=f"{idx}.png",
+            filename=f"pngs/{idx}.png",
             webdriver=driver,
             height=1600,
             width=1600,
         )
-        show(plot)
+        # show(plot)
 
 
 def main():
-    # morphs = get_data(MORPHS_PATH)
-    # clusters = get_cluster_data()
-    # export_vectors(morphs, clusters)
-    # export_normalized_future_vectors()
+    #     # morphs = get_data(MORPHS_PATH)
+    #     # clusters = get_cluster_data()
+    #     # export_vectors(morphs, clusters)
+    #     # export_normalized_future_vectors()
     # export_normalized_future_cluster_vectors()
-    # export_comb(morphs)
+
+    #     # export_comb(morphs)
     draw_vectors()
 
 

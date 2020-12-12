@@ -13,6 +13,7 @@ bokeh = "*"
 pyvis = "*"
 parse = "*"
 selenium = "*"
+requests = "*"
 
 [dev-packages]
 
