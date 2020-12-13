@@ -212,6 +212,7 @@ def export_normalized_future_cluster_vectors(
     for row in reader[1:]:
         clusters.add(row[4])
     clusters = list(clusters)
+    clusters.sort()
     header = ["index", "미래벡터", *clusters]
     origin_header = reader[0]
     ret = [header]
@@ -415,7 +416,7 @@ def main():
     export_normalized_future_cluster_vectors()
     export_distance_from_cluster(clusters)
     export_comb(morphs)
-    # draw_vectors()
+    draw_vectors()
 
 
 if __name__ == "__main__":

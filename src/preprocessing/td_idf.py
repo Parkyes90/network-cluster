@@ -23,28 +23,11 @@ def count_all():
     papers.pop(0)
     ret = set()
     for paper in papers:
-        vectorizer = TfidfVectorizer()
         *remain, context = paper
-        lines = context.split("\n")
-        noun_lines = []
-        for line in lines:
-            nouns = otk.nouns(line)
-            if nouns:
-                noun_lines.append(" ".join(nouns))
-        words = []
-        if len(noun_lines) > 0:
-            try:
-                train = vectorizer.fit_transform(noun_lines)
-                terms = vectorizer.get_feature_names()
-                sums = train.sum(axis=0)
-                for col, term in enumerate(terms):
-                    words.append((term, sums[0, col]))
-            except ValueError:
-                pass
-        words.sort(key=lambda x: x[1], reverse=True)
-        words = [w[0] for w in words]
-        for word in words:
-            ret.add(word[0])
+        nouns = otk.nouns(context)
+
+        for n in nouns:
+            ret.add(n)
         print(remain, len(ret))
     return len(ret)
 
