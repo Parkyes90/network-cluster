@@ -60,17 +60,17 @@ def draw_network():
         "node_color": colors,
     }
     pos = nx.spring_layout(G, k=0.1, iterations=10)
-    plt.figure(figsize=(10, 10))
+    plt.figure(figsize=(16, 16))
     ax = plt.gca()
-    for idx, edge in enumerate(G.edges()):
+    for idx, edge in enumerate(sorted(G.edges(), key=lambda x: (x[0], x[1]))):
         source, target = edge
-        rad = 0.2
+        rad = 0.4
         arrowprops = dict(
             linewidth=0.1,
             arrowstyle="-",
             color=edge_colors[idx],
             connectionstyle=f"arc3,rad={rad}",
-            alpha=0.2,
+            alpha=0.1,
         )
         ax.annotate(
             "", xy=pos[source], xytext=pos[target], arrowprops=arrowprops
