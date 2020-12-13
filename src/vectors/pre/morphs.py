@@ -58,10 +58,15 @@ def get_data(path):
             name, ext = filename.split(".csv")
             df = pd.read_csv(
                 os.path.join(path, directory, filename), header=0
-            ).dropna(axis=0)
-            ret[name.split(".")[1].strip() if "." in name else name] = df[
-                "형태소"
-            ].to_list()
+            ).fillna(value="1")
+            words = df["형태소"].to_list()
+            try:
+                weight = df["가중치"].to_list()
+            except KeyError:
+                weight = [1 for _ in range(len(words))]
+            ret[name.split(".")[1].strip() if "." in name else name] = list(
+                zip(words, weight)
+            )
 
     # ret = {}
     # vectors = []
@@ -103,10 +108,14 @@ def export_vectors(morphs, cluster_data):
 
         temp = []
         for key, value in morphs.items():
-            total = 0
+            total = 0.0
             keywords = set(item for item in value)
-            for k in keywords:
-                total += raw.count(k)
+            for k, weight in keywords:
+                if isinstance(weight, str):
+                    weight = float(weight)
+                c = raw.count(k)
+                v = weight * c
+                total += v
             temp.append(math.sqrt(math.sqrt(total)))
 
         merge = []
@@ -121,8 +130,44 @@ def export_vectors(morphs, cluster_data):
         reader.writerows(ret)
 
 
-def export_normalized_future_vectors():
+def export_vectors2(morphs, cluster_data):
+    raw_data = get_raw_content()
+    keys = list(morphs.keys())
+    vector_header = []
+    for i in range(0, len(keys), 2):
+        vector_header.append(f"{keys[i]} | {keys[i + 1]}")
+    header = ["index", "cate", "year", "title", "cluster", *vector_header]
+    ret = [header]
+    extra = [[] for _ in range(len(keys))]
+    for item in cluster_data:
+        idx, *remain, context, cluster, distance = item
+        raw = raw_data[int(idx)][4]
+        for i, r in enumerate(morphs.items()):
+            key, value = r
+            total = 0
+            keywords = set(item for item in value)
+            for k in keywords:
+                total += raw.count(k)
+            # v = math.sqrt(math.sqrt(total))
+            extra[i].append(total)
+    for i in range(len(extra)):
+        extra[i] = min_max_normalize(extra[i])
+    for item in cluster_data:
+        idx, *remain, context, cluster, distance = item
+        temp = []
+        for i in range(0, len(keys), 2):
+            v1 = extra[i][int(idx) - 1]
+            v2 = extra[i + 1][int(idx) - 1]
+            temp.append(v2 - v1)
+        ret.append([idx, *remain, cluster, *temp])
+    with open(
+        os.path.join(OUTPUTS_DIR, "normalized_future_vectors.csv"), "w"
+    ) as f:
+        reader = csv.writer(f)
+        reader.writerows(ret)
 
+
+def export_normalized_future_vectors(is_divide=False):
     with open(os.path.join(OUTPUTS_DIR, "future_vectors_raw.csv")) as f:
         reader = list(csv.reader(f))
     ret = [[] for _ in range(len(reader[0]) - 5)]
@@ -131,15 +176,19 @@ def export_normalized_future_vectors():
         for idx, v in enumerate(count):
             ret[idx].append(float(v))
     normals = []
-    for idx, r in enumerate(ret):
-        df = pd.DataFrame({"value": r})
-        positive = min_max_normalize(df.loc[df.value >= 0].value.to_list())
-        negative = min_max_normalize(df.loc[df.value < 0].value.to_list())
-        df.loc[df.value >= 0, "value"] = positive
-        df.loc[df.value < 0, "value"] = [-1 + n for n in negative]
+    if is_divide:
+        for idx, r in enumerate(ret):
+            df = pd.DataFrame({"value": r})
+            positive = min_max_normalize(df.loc[df.value >= 0].value.to_list())
+            negative = min_max_normalize(df.loc[df.value < 0].value.to_list())
+            df.loc[df.value >= 0, "value"] = positive
+            df.loc[df.value < 0, "value"] = [-1 + n for n in negative]
 
-        normals.append(df.value.to_list())
-
+            normals.append(df.value.to_list())
+    else:
+        for r in ret:
+            temp = min_max_normalize(r)
+            normals.append([(t - 0.5) * 2 for t in temp])
     data = [reader[0]]
     for idx, row in enumerate(reader[1:]):
         temp = []
@@ -153,10 +202,12 @@ def export_normalized_future_vectors():
         reader.writerows(data)
 
 
-def export_normalized_future_cluster_vectors():
+def export_normalized_future_cluster_vectors(
+    filename="normalized_future_vectors.csv",
+):
 
     clusters = set()
-    with open(os.path.join(OUTPUTS_DIR, "normalized_future_vectors.csv")) as f:
+    with open(os.path.join(OUTPUTS_DIR, filename)) as f:
         reader = list(csv.reader(f))
     for row in reader[1:]:
         clusters.add(row[4])
@@ -358,12 +409,13 @@ def export_distance_from_cluster(cluster_data):
 def main():
     morphs = get_data(KEYWORD_PATH)
     clusters = get_cluster_data()
-    # export_vectors(morphs, clusters)
-    export_normalized_future_vectors()
+    export_vectors(morphs, clusters)
+    # export_vectors2(morphs, clusters)  # normalize 포함
+    export_normalized_future_vectors(is_divide=True)
     export_normalized_future_cluster_vectors()
     export_distance_from_cluster(clusters)
     export_comb(morphs)
-    draw_vectors()
+    # draw_vectors()
 
 
 if __name__ == "__main__":
