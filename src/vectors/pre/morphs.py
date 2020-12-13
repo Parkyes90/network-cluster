@@ -53,12 +53,12 @@ def get_data(path):
     dirs.sort()
     for directory in dirs:
         detail_dir = os.listdir(os.path.join(path, directory))
+        detail_dir.sort()
         for filename in detail_dir:
             name, ext = filename.split(".csv")
             df = pd.read_csv(
                 os.path.join(path, directory, filename), header=0
             ).dropna(axis=0)
-            words = df["형태소"].to_list()
             ret[name.split(".")[1].strip() if "." in name else name] = df[
                 "형태소"
             ].to_list()
@@ -107,11 +107,14 @@ def export_vectors(morphs, cluster_data):
             keywords = set(item for item in value)
             for k in keywords:
                 total += raw.count(k)
-            temp.append(total)
-        merge = []
-        for i in range(0, len(temp), 2):
-            merge.append(temp[i + 1] - temp[i])
+            temp.append(math.sqrt(math.sqrt(total)))
 
+        merge = []
+
+        for i in range(0, len(temp), 2):
+            diff = temp[i + 1] - temp[i]
+
+            merge.append(diff)
         ret.append([idx, *remain, cluster, *merge])
     with open(os.path.join(OUTPUTS_DIR, "future_vectors_raw.csv"), "w") as f:
         reader = csv.writer(f)
@@ -128,9 +131,15 @@ def export_normalized_future_vectors():
         for idx, v in enumerate(count):
             ret[idx].append(float(v))
     normals = []
-    for r in ret:
-        temp = min_max_normalize(r)
-        normals.append([(t - 0.5) * 2 for t in temp])
+    for idx, r in enumerate(ret):
+        df = pd.DataFrame({"value": r})
+        positive = min_max_normalize(df.loc[df.value >= 0].value.to_list())
+        negative = min_max_normalize(df.loc[df.value < 0].value.to_list())
+        df.loc[df.value >= 0, "value"] = positive
+        df.loc[df.value < 0, "value"] = [-1 + n for n in negative]
+
+        normals.append(df.value.to_list())
+
     data = [reader[0]]
     for idx, row in enumerate(reader[1:]):
         temp = []
@@ -139,13 +148,6 @@ def export_normalized_future_vectors():
         data.append(row[:5] + temp)
     with open(
         os.path.join(OUTPUTS_DIR, "normalized_future_vectors.csv"), "w"
-    ) as f:
-        reader = csv.writer(f)
-        reader.writerows(data)
-    with open(
-        os.path.join(OUTPUTS_DIR, "normalized_future_vectors_euckr.csv"),
-        "w",
-        encoding="cp949",
     ) as f:
         reader = csv.writer(f)
         reader.writerows(data)
@@ -184,7 +186,7 @@ def export_normalized_future_cluster_vectors():
             OUTPUTS_DIR, "normalized_future_cluster_vectors_euckr.csv"
         ),
         "w",
-        encoding="cp949",
+        encoding="euc-kr",
     ) as f:
         w = csv.writer(f)
         w.writerows(ret)
@@ -202,7 +204,7 @@ def export_comb(morphs):
     with open(
         os.path.join(OUTPUTS_DIR, "future_comb_euckr.csv"),
         "w",
-        encoding="cp949",
+        encoding="euc-kr",
     ) as f:
         w = csv.writer(f)
         w.writerows([("가로축", "세로축"), *enumerate(comb, 1)])
@@ -330,7 +332,6 @@ def export_distance_from_cluster(cluster_data):
             cluster_map[keys[idx]].append(value)
     for row in docs[1:]:
         index, cate, year, title, cluster, *vs = row
-        print(index)
         ret.append(
             [
                 index,
@@ -352,26 +353,16 @@ def export_distance_from_cluster(cluster_data):
     ) as f:
         w = csv.writer(f)
         w.writerows(ret)
-    with open(
-        os.path.join(
-            OUTPUTS_DIR,
-            "normalized_future_vectors_with_distance_from_cluster_euckr.csv",
-        ),
-        "w",
-        encoding="cp949",
-    ) as f:
-        w = csv.writer(f)
-        w.writerows(ret)
 
 
 def main():
     morphs = get_data(KEYWORD_PATH)
     clusters = get_cluster_data()
-    export_vectors(morphs, clusters)
+    # export_vectors(morphs, clusters)
     export_normalized_future_vectors()
     export_normalized_future_cluster_vectors()
     export_distance_from_cluster(clusters)
-    # export_comb(morphs)
+    export_comb(morphs)
     draw_vectors()
 
 

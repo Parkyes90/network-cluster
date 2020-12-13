@@ -46,7 +46,7 @@ def main():
     with open(
         os.path.join(OUTPUTS_DIR, "cluster-keyword-count-map-euckr.csv"),
         "w",
-        encoding="cp949",
+        encoding="euc-kr",
     ) as f:
         writer = csv.writer(f)
         writer.writerows(data)
