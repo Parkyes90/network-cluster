@@ -19,10 +19,10 @@ csv.field_size_limit(sys.maxsize)
 def draw_network():
     colors = []
     color_map = {
-        "3": "#ffee33",
-        "2": "#00a152",
-        "1": "#2979ff",
-        "0": "#d500f9",
+        "3": "#F2C34B",
+        "2": "#48A985",
+        "1": "#3282F4",
+        "0": "#C14F49",
     }
     cluster_map = {}
     node_sizes = []
@@ -42,7 +42,7 @@ def draw_network():
         cluster_map[node] = cluster
         G.add_node(node)
         colors.append(color_map[cluster])
-        node_sizes.append(20 + 100 * normalized[idx])
+        node_sizes.append(30 + 150 * normalized[idx])
     for row in reader[1:]:
         (
             index,
@@ -61,6 +61,7 @@ def draw_network():
         "node_color": colors,
     }
     pos = nx.spring_layout(G, k=0.8, iterations=20)
+    pos = nx.spring_layout(G)
     plt.figure(figsize=(24, 24))
     ax = plt.gca()
     for idx, edge in enumerate(G.edges()):
@@ -71,7 +72,7 @@ def draw_network():
             arrowstyle="-",
             color=color_map[cluster_map[source]],
             connectionstyle=f"arc3,rad={rad}",
-            alpha=0.2,
+            alpha=0.5,
         )
         ax.annotate(
             "", xy=pos[source], xytext=pos[target], arrowprops=arrowprops
@@ -86,8 +87,13 @@ def draw_network():
 
 
 def draw_chart():
-    net = Network("1200px", "1200px", bgcolor="#22222")
-    colors = {"0": "#2196f3", "1": "#ffeb3b", "2": "#4caf50", "3": "#f44336"}
+    net = Network("1600px", "1600px", bgcolor="#22222")
+    colors = {
+        "3": "#ffee33",
+        "2": "#00a152",
+        "1": "#2979ff",
+        "0": "#d500f9",
+    }
     with open(os.path.join(OUTPUTS_DIR, "similarity.csv")) as f:
         reader = list(csv.reader(f))
         reader.pop(0)
@@ -105,13 +111,16 @@ def draw_chart():
         index, title, cluster, *rows = row
         color = colors[cluster]
         net.add_node(
-            index, index, color=color, size=20 + (normalized[int(index)] * 20),
+            index,
+            index,
+            color=color,
+            size=20 + (normalized[int(index)] * 100),
         )
     for row in reader:
         index, title, cluster, *rows = row
         for idx, r in enumerate(rows, 1):
             if index != str(idx) and r != "0":
-                end_color = colors[reader[idx - 1][2]]
+                end_color = colors[cluster]
                 net.add_edge(index, str(idx), color=end_color, weight=float(r))
     net.set_edge_smooth("dynamic")
     net.show_buttons(filter_=["physics"])
@@ -143,13 +152,13 @@ def write_similarity():
         sort = (
             df.loc[df.cluster == current_cluster]
             .sort_values(by="value", ascending=False)
-            .head(4)
+            .head(5)
         )
         top3 = sort.index.tolist()
         sort = (
             df.loc[df.cluster != current_cluster]
             .sort_values(by="value", ascending=False)
-            .head(2)
+            .head(1)
         )
         top2 = sort.index.tolist()
         top5 = set(top3 + top2)
@@ -229,9 +238,9 @@ def write_network():
 
 def main():
     write_similarity()
-    # write_network()
+    write_network()
     # draw_chart()
-    # draw_network()
+    draw_network()
 
 
 if __name__ == "__main__":
