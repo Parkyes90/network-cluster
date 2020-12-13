@@ -102,7 +102,7 @@ def export_vectors(morphs, cluster_data):
             keywords = set(item for item in value)
             for k in keywords:
                 total += raw.count(k)
-            temp.append(math.sqrt(math.sqrt(total)))
+            temp.append(total)
         merge = []
         for i in range(0, len(temp), 2):
             merge.append(temp[i + 1] - temp[i])
@@ -327,11 +327,11 @@ def export_distance_from_cluster(cluster_data):
 
 
 def main():
-    # morphs = get_data(KEYWORD_PATH)
+    morphs = get_data(KEYWORD_PATH)
     clusters = get_cluster_data()
-    # export_vectors(morphs, clusters)
-    # export_normalized_future_vectors()
-    # export_normalized_future_cluster_vectors()
+    export_vectors(morphs, clusters)
+    export_normalized_future_vectors()
+    export_normalized_future_cluster_vectors()
     export_distance_from_cluster(clusters)
     # export_comb(morphs)
     # draw_vectors()

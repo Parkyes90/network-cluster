@@ -42,7 +42,6 @@ def draw_network():
         G.add_node(node)
         colors.append(color_map[cluster])
         node_sizes.append(20 + 100 * normalized[idx])
-    st_color_map = {}
     for row in reader[1:]:
         (
             index,
@@ -52,29 +51,26 @@ def draw_network():
             destination_cluster,
             source_connected_count,
         ) = row
-        st_color_map[f"{source}-{destination}"] = color_map[
-            destination_cluster
-        ]
         G.add_edge(source, destination)
-        edge_colors.append(color_map[destination_cluster])
+        edge_colors.append(color_map[source_cluster])
     options = {
         "node_size": node_sizes,
         "linewidths": 0,
         "alpha": 0.8,
         "node_color": colors,
     }
-    pos = nx.spring_layout(G, k=0.05, iterations=10)
-    plt.figure(figsize=(12, 12))
+    pos = nx.spring_layout(G, k=0.1, iterations=10)
+    plt.figure(figsize=(10, 10))
     ax = plt.gca()
     for idx, edge in enumerate(G.edges()):
         source, target = edge
         rad = 0.2
         arrowprops = dict(
-            linewidth=0.2,
+            linewidth=0.1,
             arrowstyle="-",
             color=edge_colors[idx],
             connectionstyle=f"arc3,rad={rad}",
-            alpha=0.1,
+            alpha=0.2,
         )
         ax.annotate(
             "", xy=pos[source], xytext=pos[target], arrowprops=arrowprops
@@ -83,8 +79,8 @@ def draw_network():
     nx.draw_networkx_nodes(G, pos, **options)
 
     plt.axis("off")
-    plt.savefig("network.svg", format="svg")
-    plt.savefig("network.png", format="png")
+    plt.savefig("network.svg", format="svg", dpi=400)
+    plt.savefig("network.png", format="png", dpi=400)
     plt.show()
 
 
@@ -119,7 +115,7 @@ def draw_chart():
     net.set_edge_smooth("dynamic")
     net.show_buttons(filter_=["physics"])
     # net.show("nx.html")
-    net.show("nx.svg")
+    net.show("nx.html")
 
 
 def write_similarity():
@@ -136,7 +132,7 @@ def write_similarity():
     listed = matrix.tolist()
     for row in listed:
         df = pd.DataFrame({"index": range(len(row)), "value": row})
-        sort = df.sort_values(by="value", ascending=False).head(10)
+        sort = df.sort_values(by="value", ascending=False).head(6)
         top5 = set(sort.index.tolist())
         for i in range(len(row)):
             if i not in top5:
