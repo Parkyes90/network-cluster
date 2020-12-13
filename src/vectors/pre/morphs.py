@@ -81,11 +81,16 @@ def get_data(path):
     return ret
 
 
-def export_vectors(morphs, cluster_data):
+def get_raw_content():
     with open(
         os.path.join(OUTPUTS_DIR, "index-raw-papers.csv"), encoding="utf-8",
     ) as f:
         raw_data = list(csv.reader(f))
+    return raw_data
+
+
+def export_vectors(morphs, cluster_data):
+    raw_data = get_raw_content()
     keys = list(morphs.keys())
     vector_header = []
     for i in range(0, len(keys), 2):
@@ -137,6 +142,13 @@ def export_normalized_future_vectors():
     ) as f:
         reader = csv.writer(f)
         reader.writerows(data)
+    with open(
+        os.path.join(OUTPUTS_DIR, "normalized_future_vectors_euckr.csv"),
+        "w",
+        encoding="cp949",
+    ) as f:
+        reader = csv.writer(f)
+        reader.writerows(data)
 
 
 def export_normalized_future_cluster_vectors():
@@ -167,6 +179,15 @@ def export_normalized_future_cluster_vectors():
     ) as f:
         w = csv.writer(f)
         w.writerows(ret)
+    with open(
+        os.path.join(
+            OUTPUTS_DIR, "normalized_future_cluster_vectors_euckr.csv"
+        ),
+        "w",
+        encoding="cp949",
+    ) as f:
+        w = csv.writer(f)
+        w.writerows(ret)
 
 
 def export_comb(morphs):
@@ -176,6 +197,13 @@ def export_comb(morphs):
         ret.append(f"{keys[i]} | {keys[i + 1]}")
     comb = list(combinations(ret, 2))
     with open(os.path.join(OUTPUTS_DIR, "future_comb.csv"), "w") as f:
+        w = csv.writer(f)
+        w.writerows([("가로축", "세로축"), *enumerate(comb, 1)])
+    with open(
+        os.path.join(OUTPUTS_DIR, "future_comb_euckr.csv"),
+        "w",
+        encoding="cp949",
+    ) as f:
         w = csv.writer(f)
         w.writerows([("가로축", "세로축"), *enumerate(comb, 1)])
 
@@ -324,6 +352,16 @@ def export_distance_from_cluster(cluster_data):
     ) as f:
         w = csv.writer(f)
         w.writerows(ret)
+    with open(
+        os.path.join(
+            OUTPUTS_DIR,
+            "normalized_future_vectors_with_distance_from_cluster_euckr.csv",
+        ),
+        "w",
+        encoding="cp949",
+    ) as f:
+        w = csv.writer(f)
+        w.writerows(ret)
 
 
 def main():
@@ -334,7 +372,7 @@ def main():
     export_normalized_future_cluster_vectors()
     export_distance_from_cluster(clusters)
     # export_comb(morphs)
-    # draw_vectors()
+    draw_vectors()
 
 
 if __name__ == "__main__":
