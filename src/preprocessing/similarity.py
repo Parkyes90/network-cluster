@@ -24,7 +24,7 @@ def draw_network():
         "1": "#2979ff",
         "0": "#d500f9",
     }
-
+    cluster_map = {}
     node_sizes = []
 
     edge_colors = []
@@ -39,6 +39,7 @@ def draw_network():
     normalized = min_max_normalize(normalized)
     for idx, remain in enumerate(nodes):
         node, cluster, _ = remain
+        cluster_map[node] = cluster
         G.add_node(node)
         colors.append(color_map[cluster])
         node_sizes.append(20 + 100 * normalized[idx])
@@ -52,25 +53,25 @@ def draw_network():
             source_connected_count,
         ) = row
         G.add_edge(source, destination)
-        edge_colors.append(color_map[source_cluster])
+        edge_colors.append(color_map[destination_cluster])
     options = {
         "node_size": node_sizes,
         "linewidths": 0,
         "alpha": 0.8,
         "node_color": colors,
     }
-    pos = nx.spring_layout(G, k=0.1, iterations=10)
-    plt.figure(figsize=(16, 16))
+    pos = nx.spring_layout(G, k=0.8, iterations=20)
+    plt.figure(figsize=(24, 24))
     ax = plt.gca()
-    for idx, edge in enumerate(sorted(G.edges(), key=lambda x: (x[0], x[1]))):
+    for idx, edge in enumerate(G.edges()):
         source, target = edge
         rad = 0.4
         arrowprops = dict(
             linewidth=0.1,
             arrowstyle="-",
-            color=edge_colors[idx],
+            color=color_map[cluster_map[source]],
             connectionstyle=f"arc3,rad={rad}",
-            alpha=0.1,
+            alpha=0.2,
         )
         ax.annotate(
             "", xy=pos[source], xytext=pos[target], arrowprops=arrowprops
@@ -120,28 +121,58 @@ def draw_chart():
 
 def write_similarity():
     docs = []
+    clusters = []
     vect = TfidfVectorizer()
     with open(os.path.join(OUTPUTS_DIR, "cluster-docs.csv")) as f:
         reader = list(csv.reader(f))
         reader.pop(0)
         for row in reader:
             *remain, context, cluster, cluster_distance = row
+            clusters.append(cluster)
             docs.append(context)
     tfidf = vect.fit_transform(docs)
     matrix = (tfidf * tfidf.T).A
     listed = matrix.tolist()
-    for row in listed:
-        df = pd.DataFrame({"index": range(len(row)), "value": row})
-        sort = df.sort_values(by="value", ascending=False).head(6)
-        top5 = set(sort.index.tolist())
+    raw = []
+    for idx, row in enumerate(listed):
+        raw.append([1 - r for r in row])
+        current_cluster = clusters[idx]
+        df = pd.DataFrame(
+            {"index": range(len(row)), "value": row, "cluster": clusters}
+        )
+        sort = (
+            df.loc[df.cluster == current_cluster]
+            .sort_values(by="value", ascending=False)
+            .head(4)
+        )
+        top3 = sort.index.tolist()
+        sort = (
+            df.loc[df.cluster != current_cluster]
+            .sort_values(by="value", ascending=False)
+            .head(2)
+        )
+        top2 = sort.index.tolist()
+        top5 = set(top3 + top2)
         for i in range(len(row)):
             if i not in top5:
                 row[i] = 0
+            else:
+                row[i] = 1
+
     file = open(os.path.join(OUTPUTS_DIR, "similarity.csv"), "w")
     w = csv.writer(file)
     w.writerow(["index", "title", "cluster", *list(range(1, len(reader) + 1))])
     for index, row in enumerate(listed):
         w.writerow([index + 1, reader[index][3], reader[index][5], *row])
+
+    file.close()
+
+    file = open(os.path.join(OUTPUTS_DIR, "similarity-raw.csv"), "w")
+    w = csv.writer(file)
+    w.writerow(["index", "title", "cluster", *list(range(1, len(reader) + 1))])
+    for index, row in enumerate(raw):
+        w.writerow([index + 1, reader[index][3], reader[index][5], *row])
+
     file.close()
 
 
@@ -197,10 +228,10 @@ def write_network():
 
 
 def main():
-    # write_similarity()
+    write_similarity()
     # write_network()
     # draw_chart()
-    draw_network()
+    # draw_network()
 
 
 if __name__ == "__main__":
