@@ -18,6 +18,37 @@ def get_papers():
         return list(reader)
 
 
+def count_all():
+    papers = get_papers()
+    papers.pop(0)
+    ret = set()
+    for paper in papers:
+        vectorizer = TfidfVectorizer()
+        *remain, context = paper
+        lines = context.split("\n")
+        noun_lines = []
+        for line in lines:
+            nouns = otk.nouns(line)
+            if nouns:
+                noun_lines.append(" ".join(nouns))
+        words = []
+        if len(noun_lines) > 0:
+            try:
+                train = vectorizer.fit_transform(noun_lines)
+                terms = vectorizer.get_feature_names()
+                sums = train.sum(axis=0)
+                for col, term in enumerate(terms):
+                    words.append((term, sums[0, col]))
+            except ValueError:
+                pass
+        words.sort(key=lambda x: x[1], reverse=True)
+        words = [w[0] for w in words]
+        for word in words:
+            ret.add(word[0])
+        print(remain, len(ret))
+    return len(ret)
+
+
 def remove_no_context_rows():
     file = open(
         os.path.join(OUTPUTS_DIR, "filtered-word-vector-docs.csv"), "w"
@@ -102,9 +133,10 @@ def write_reindex_raw_data():
 
 
 def main():
+    count_all()
     # process()
     # remove_no_context_rows()
-    write_reindex_raw_data()
+    # write_reindex_raw_data()
 
 
 if __name__ == "__main__":
