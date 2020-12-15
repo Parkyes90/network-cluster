@@ -1,11 +1,19 @@
 import csv
+import json
 import os
 from collections import defaultdict
 
+from colour import Color
 from gensim.models.word2vec import Word2Vec
 from konlpy.tag import Okt
 import pandas as pd
+from plotly import graph_objs as go
+import networkx as nx
+import matplotlib.pyplot as plt
+from matplotlib import font_manager
+
 from src.config.settings import ABILITY_DIR
+from src.preprocessing.cluster import min_max_normalize
 
 okt = Okt()
 
@@ -113,7 +121,10 @@ def modeling(min_count=2):
         vectors.append([word, *model.wv[word].tolist()])
         temp = [word]
         for w in filtered_set:
-            temp.append(model.wv.similarity(word, w))
+            if word != w:
+                temp.append(model.wv.similarity(word, w))
+            else:
+                temp.append(0)
         networks.append(temp)
     with open(os.path.join(ABILITY_DIR, "output", "vectors.csv"), "w") as f:
         w = csv.writer(f)
@@ -124,10 +135,165 @@ def modeling(min_count=2):
 
 
 def draw_vectors():
-    pass
+    df = pd.read_csv(
+        os.path.join(ABILITY_DIR, "output", "vectors.csv")
+    ).dropna(axis=0)
+    data = go.Scatter3d(
+        x=df.x,
+        y=df.y,
+        z=df.z,
+        text=df.word,
+        mode="markers+text",
+        marker={
+            "size": 12,
+            "color": df.z,
+            "colorscale": "Viridis",
+            "opacity": 0.7,
+        },
+    )
+    fig = go.Figure(data=[data])
+    fig.write_image("vectors.png", width=2400, height=2400, scale=4)
+    fig.write_image("vectors.svg", width=2400, height=2400, scale=4)
+    # fig.show()
+    # trace = graph_objs.Scatter3d(
+    #     x=df.x.to_list(),  # <-- Put your data instead
+    #     y=df.y.to_list(),  # <-- Put your data instead
+    #     z=df.z.to_list(),  # <-- Put your data instead
+    #     mode="markers",
+    #     marker={"size": 10, "opacity": 0.8},
+    # )
+    # layout = graph_objs.Layout(margin={"l": 0, "r": 0, "b": 0, "t": 0})
+    #
+    # data = [trace]
+    #
+    # plot_figure = graph_objs.Figure(data=data, layout=layout)
+
+
+def write_similarity_csv():
+    df = pd.read_csv(
+        os.path.join(ABILITY_DIR, "output", "networks.csv")
+    ).dropna(axis=0)
+    rank = len(df) // 10
+    ret = [df.columns.tolist()]
+    for idx, row in df.iterrows():
+        word, *r = row.tolist()
+        row_df = pd.DataFrame({"value": [float(i) for i in r]})
+        sort = row_df.value.sort_values(ascending=False).head(rank)
+        temp = []
+        indexes = set(sort.index.to_list())
+        for index, _ in row_df.iterrows():
+            if index in indexes:
+                temp.append(1)
+            else:
+                temp.append(0)
+        ret.append([word, *temp])
+    with open(
+        os.path.join(ABILITY_DIR, "output", "network_for_draw.csv"), "w"
+    ) as f:
+        w = csv.writer(f)
+        w.writerows(ret)
+
+
+def draw_network():
+    with open(
+        os.path.join(ABILITY_DIR, "output", "network_for_draw.csv")
+    ) as f:
+        reader = list(csv.reader(f))
+    with open(os.path.join(ABILITY_DIR, "output", "network_helper.json")) as f:
+        helper = json.load(f)
+    header = reader[0]
+    G = nx.Graph()
+    labels = {}
+    edge_colors = []
+    node_sizes = []
+    node_colors = []
+    for row in reader[1:]:
+        # print(row[0])
+        G.add_node(row[0])
+        node_sizes.append(float(helper[row[0]]["size"]))
+        node_colors.append(helper[row[0]]["color"])
+        labels[row[0]] = row[0]
+    for row in reader[1:]:
+        source = row[0]
+        for index, r in enumerate(row[1:], 1):
+            if r == "1":
+                G.add_edge(source, header[index])
+                edge_colors.append(helper[header[index]]["color"])
+    pos = nx.spring_layout(G)
+    plt.figure(figsize=(24, 24))
+    ax = plt.gca()
+    options = {
+        "linewidths": 0,
+        "alpha": 0.8,
+        "node_size": node_sizes,
+        "node_color": node_colors,
+    }
+    for idx, edge in enumerate(G.edges()):
+        source, target = edge
+        rad = 0.4
+        arrowprops = dict(
+            linewidth=0.2,
+            arrowstyle="-",
+            color=helper[target]["color"],
+            connectionstyle=f"arc3,rad={rad}",
+            alpha=0.6,
+        )
+        ax.annotate(
+            "", xy=pos[source], xytext=pos[target], arrowprops=arrowprops
+        )
+
+    nx.draw_networkx_nodes(G, pos, **options)
+    nx.draw_networkx_labels(G, pos, labels=labels, font_family="NanumGothic")
+
+    plt.axis("off")
+
+    plt.savefig("network.svg", format="svg", dpi=400)
+    plt.savefig("network.png", format="png", dpi=400)
+    # plt.show()
+
+
+def write_count():
+    with open(
+        os.path.join(ABILITY_DIR, "output", "network_for_draw.csv")
+    ) as f:
+        reader = list(csv.reader(f))
+    header = reader[0]
+    count_map = defaultdict(int)
+    for row in reader[1:]:
+        _, *targets = row
+        for idx, target in enumerate(targets, 1):
+            if target == "1":
+                count_map[header[idx]] += 1
+    normalized = min_max_normalize(count_map.values())
+    size_map = defaultdict(int)
+    for idx, key in enumerate(count_map.keys()):
+        size_map[key] = 30 + 150 * normalized[idx]
+    blue = Color("blue")
+    green = Color("green")
+    colors = list(blue.range_to(green, len(header) - 1))
+    color_map = {}
+    sorted_size_map = sorted(
+        size_map.items(), key=lambda x: x[1], reverse=True
+    )
+    for idx, key_value in enumerate(sorted_size_map):
+        k, _ = key_value
+        color_map[k] = colors[idx].get_hex()
+    ret = {}
+    for idx, row in enumerate(reader[1:]):
+        word = row[0]
+        color = color_map[word]
+        size = size_map[word]
+        ret[word] = {"color": color, "size": size, "count": count_map[word]}
+    with open(
+        os.path.join(ABILITY_DIR, "output", "network_helper.json"), "w"
+    ) as f:
+        json.dump(ret, f)
 
 
 if __name__ == "__main__":
     # to_csv()
-    # modeling()
-    draw_vectors()
+    # modeling(10)
+    # draw_vectors()
+    # write_similarity_csv()
+    # write_count()
+    draw_network()

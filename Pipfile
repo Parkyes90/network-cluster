@@ -16,6 +16,9 @@ selenium = "*"
 requests = "*"
 matplotlib = "*"
 xlrd = "==1.2.0"
+plotly = "*"
+kaleido = "*"
+colour = "*"
 
 [dev-packages]
 
