@@ -270,8 +270,19 @@ def draw_vectors():
     df = pd.read_csv(
         os.path.join(OUTPUTS_DIR, "normalized_future_vectors.csv")
     )
+    filter_list = {
+        (5, 6),
+        (5, 7),
+        (6, 7),
+        (8, 9),
+        (8, 10),
+        (9, 10),
+        (11, 12),
+        (11, 13),
+        (12, 13),
+    }
     comb = list(combinations(range(5, len(df.columns)), 2))
-
+    comb = [c for c in comb if c not in filter_list]
     for idx, coord in enumerate(comb, 1):
         x, y = coord
         X = df[df.columns[x]].to_list()
@@ -282,16 +293,25 @@ def draw_vectors():
         tsne_df["title"] = df["title"].to_list()
         tsne_df["cluster_no"] = df["cluster"].to_list()
         colormap = {3: "#ffee33", 2: "#00a152", 1: "#2979ff", 0: "#d500f9"}
+        # colormap = {3: "#bdbdbd", 2: "#bdbdbd", 1: "#bdbdbd", 0: "#d500f9"}
+        # colormap = {3: "#bdbdbd", 2: "#bdbdbd", 1: "#2979ff", 0: "#bdbdbd"}
+        # colormap = {3: "#bdbdbd", 2: "#00a152", 1: "#bdbdbd", 0: "#bdbdbd"}
+        # colormap = {3: "#ffee33", 2: "#bdbdbd", 1: "#bdbdbd", 0: "#bdbdbd"}
+        only_one_cluster = pd.DataFrame(tsne_df.loc[tsne_df.cluster_no == 3])
+        colors = [colormap[x] for x in only_one_cluster["cluster_no"]]
 
-        colors = [colormap[x] for x in tsne_df["cluster_no"]]
-        tsne_df["color"] = colors
-        plot_data = ColumnDataSource(data=tsne_df.to_dict(orient="list"))
+        only_one_cluster["color"] = colors
+        plot_data = ColumnDataSource(
+            data=only_one_cluster.to_dict(orient="list")
+        )
         plot = figure(
             # title='TSNE Twitter BIO Embeddings',
             plot_width=1600,
             plot_height=1600,
             active_scroll="wheel_zoom",
             output_backend="svg",
+            x_range=(-1.1, 1.1),
+            y_range=(-1.1, 1.1),
         )
         plot.add_tools(HoverTool(tooltips="@title"))
         plot.circle(
@@ -408,14 +428,14 @@ def export_distance_from_cluster(cluster_data):
 
 
 def main():
-    morphs = get_data(KEYWORD_PATH)
-    clusters = get_cluster_data()
-    export_vectors(morphs, clusters)
+    # morphs = get_data(KEYWORD_PATH)
+    # clusters = get_cluster_data()
+    # export_vectors(morphs, clusters)
     # export_vectors2(morphs, clusters)  # normalize 포함
-    export_normalized_future_vectors(is_divide=True)
-    export_normalized_future_cluster_vectors()
-    export_distance_from_cluster(clusters)
-    export_comb(morphs)
+    # export_normalized_future_vectors(is_divide=True)
+    # export_normalized_future_cluster_vectors()
+    # export_distance_from_cluster(clusters)
+    # export_comb(morphs)
     draw_vectors()
 
 
