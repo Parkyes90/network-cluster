@@ -18,29 +18,17 @@ from src.preprocessing.cluster import min_max_normalize
 okt = Okt()
 
 stopwords = {
-    "의",
-    "가",
-    "이",
-    "은",
-    "들",
-    "는",
-    "좀",
-    "잘",
-    "걍",
-    "과",
-    "도",
-    "를",
-    "으로",
-    "자",
-    "에",
-    "와",
-    "한",
-    "하다",
-    "및",
-    "함",
-    "긍",
-    "끝",
-    "수",
+    "로써",
+    "보임",
+    "위해",
+    "통해",
+    "대해",
+    "거나",
+    "보이",
+    "가지",
+    "관련",
+    "가짐",
+    "활동",
 }
 
 singles = {
@@ -80,10 +68,11 @@ def to_csv():
         temp_x = okt.nouns(s)
         temp = []
         for t in temp_x:
-            if len(t) > 1:
-                temp.append(t)
             if t in singles:
                 temp.append(t)
+            elif len(t) > 1 and t not in stopwords:
+                temp.append(t)
+
         tokens.append(temp)
     new_df = pd.DataFrame(
         {"type": df.type.to_list(), "words": [" ".join(t) for t in tokens]}
@@ -138,6 +127,7 @@ def draw_vectors():
     df = pd.read_csv(
         os.path.join(ABILITY_DIR, "output", "vectors.csv")
     ).dropna(axis=0)
+
     data = go.Scatter3d(
         x=df.x,
         y=df.y,
@@ -145,14 +135,16 @@ def draw_vectors():
         text=df.word,
         mode="markers+text",
         marker={
-            "size": 12,
+            "size": 14,
             "color": df.z,
             "colorscale": "Viridis",
-            "opacity": 0.7,
+            "opacity": 0.8,
         },
     )
     fig = go.Figure(data=[data])
+
     fig.write_image("vectors.png", width=2400, height=2400, scale=4)
+    print("PNG")
     fig.write_image("vectors.svg", width=2400, height=2400, scale=4)
     # fig.show()
     # trace = graph_objs.Scatter3d(
@@ -220,6 +212,8 @@ def draw_network():
                 G.add_edge(source, header[index])
                 edge_colors.append(helper[header[index]]["color"])
     pos = nx.spring_layout(G)
+    # pos = nx.spring_layout(G, k=1, iterations=20)
+
     plt.figure(figsize=(24, 24))
     ax = plt.gca()
     options = {
@@ -243,8 +237,19 @@ def draw_network():
         )
 
     nx.draw_networkx_nodes(G, pos, **options)
-    nx.draw_networkx_labels(G, pos, labels=labels, font_family="NanumGothic")
+    # nx.draw_networkx_labels(G, pos, labels=labels, font_family="NanumGothic")
 
+    # plt.text(x, y, node, fontsize=d[node] * 5, ha='center', va='center')
+    plt.rc("font", family="NanumGothic")
+    for node, (x, y) in pos.items():
+        plt.text(
+            x,
+            y,
+            node,
+            fontsize=float(helper[node]["font_size"]),
+            ha="center",
+            va="center",
+        )
     plt.axis("off")
 
     plt.savefig("network.svg", format="svg", dpi=400)
@@ -266,8 +271,10 @@ def write_count():
                 count_map[header[idx]] += 1
     normalized = min_max_normalize(count_map.values())
     size_map = defaultdict(int)
+    font_size_map = defaultdict(int)
     for idx, key in enumerate(count_map.keys()):
-        size_map[key] = 30 + 150 * normalized[idx]
+        size_map[key] = 200 + 500 * normalized[idx]
+        font_size_map[key] = 20 + 20 * normalized[idx]
     blue = Color("blue")
     green = Color("green")
     colors = list(blue.range_to(green, len(header) - 1))
@@ -283,7 +290,12 @@ def write_count():
         word = row[0]
         color = color_map[word]
         size = size_map[word]
-        ret[word] = {"color": color, "size": size, "count": count_map[word]}
+        ret[word] = {
+            "color": color,
+            "size": size,
+            "count": count_map[word],
+            "font_size": font_size_map[word],
+        }
     with open(
         os.path.join(ABILITY_DIR, "output", "network_helper.json"), "w"
     ) as f:
@@ -295,5 +307,5 @@ if __name__ == "__main__":
     # modeling(10)
     # draw_vectors()
     # write_similarity_csv()
-    # write_count()
+    write_count()
     draw_network()

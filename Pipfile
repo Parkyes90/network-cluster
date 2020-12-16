@@ -19,6 +19,7 @@ xlrd = "==1.2.0"
 plotly = "*"
 kaleido = "*"
 colour = "*"
+ipywidgets = "*"
 
 [dev-packages]
 
