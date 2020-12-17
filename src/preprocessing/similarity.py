@@ -17,16 +17,20 @@ csv.field_size_limit(sys.maxsize)
 
 
 def draw_network():
-    colors = []
     color_map = {
         "3": "#F2C34B",
         "2": "#48A985",
         "1": "#3282F4",
         "0": "#C14F49",
     }
-    cluster_map = {}
-    node_sizes = []
+    node_shape_map = {
+        "3": "^",
+        "2": "o",
+        "1": "v",
+        "0": "d",
+    }
 
+    cluster_map = {}
     edge_colors = []
     with open(os.path.join(OUTPUTS_DIR, "for-network-draw.csv")) as f:
         reader = list(csv.reader(f))
@@ -40,9 +44,12 @@ def draw_network():
     for idx, remain in enumerate(nodes):
         node, cluster, _ = remain
         cluster_map[node] = cluster
-        G.add_node(node)
-        colors.append(color_map[cluster])
-        node_sizes.append(30 + 150 * normalized[idx])
+        G.add_node(
+            node,
+            s=node_shape_map[cluster],
+            size=30 + 150 * normalized[idx],
+            color=color_map[cluster],
+        )
     for row in reader[1:]:
         (
             index,
@@ -55,14 +62,12 @@ def draw_network():
         G.add_edge(source, destination)
         edge_colors.append(color_map[destination_cluster])
     options = {
-        "node_size": node_sizes,
         "linewidths": 0,
         "alpha": 0.8,
-        "node_color": colors,
     }
     pos = nx.spring_layout(G, k=0.8, iterations=20)
     pos = nx.spring_layout(G)
-    plt.figure(figsize=(24, 24))
+    plt.figure(figsize=(16, 16))
     ax = plt.gca()
     for idx, edge in enumerate(G.edges()):
         source, target = edge
@@ -77,9 +82,26 @@ def draw_network():
         ax.annotate(
             "", xy=pos[source], xytext=pos[target], arrowprops=arrowprops
         )
-
-    nx.draw_networkx_nodes(G, pos, **options)
-
+    nodeShapes = set((aShape[1]["s"] for aShape in G.nodes(data=True)))
+    for aShape in nodeShapes:
+        node_list = []
+        colors = []
+        sizes = []
+        for sNode in filter(lambda x: x[1]["s"] == aShape, G.nodes(data=True)):
+            colors.append(sNode[1]["color"])
+            sizes.append(sNode[1]["size"])
+            node_list.append(sNode[0])
+        nx.draw_networkx_nodes(
+            G,
+            pos,
+            node_shape=aShape,
+            nodelist=node_list,
+            node_color=colors,
+            node_size=sizes,
+            **options,
+        )
+    # nx.draw_networkx_nodes(G, pos, **options)
+    #
     plt.axis("off")
     plt.savefig("network.svg", format="svg", dpi=400)
     plt.savefig("network.png", format="png", dpi=400)
@@ -237,8 +259,8 @@ def write_network():
 
 
 def main():
-    write_similarity()
-    write_network()
+    # write_similarity()
+    # write_network()
     # draw_chart()
     draw_network()
 
