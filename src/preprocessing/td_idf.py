@@ -1,7 +1,9 @@
 import csv
 import os
 import sys
+from math import log
 
+import pandas as pd
 from konlpy.tag import Okt
 from sklearn.feature_extraction.text import TfidfVectorizer
 
@@ -115,9 +117,68 @@ def write_reindex_raw_data():
         w.writerows(ret)
 
 
+def write_td_idf_by_doc():
+    papers = get_papers()[1:]
+    f = open(
+        os.path.join(OUTPUTS_DIR, "tf-df-idf.csv"), "w", encoding="utf-8",
+    )
+    writer = csv.writer(f)
+    writer.writerow(["doc_index", "word", "tf", "df", "idf"])
+    for paper in papers:
+        idx, *_, context = paper
+        lines = context.split("\n")
+        noun_lines = []
+        for line in lines:
+            nouns = otk.nouns(line)
+            if nouns:
+                noun_lines.append(" ".join(nouns))
+        total_docs_count = len(noun_lines)
+        words_set = set()
+        for line in noun_lines:
+            nouns = line.split()
+            for noun in nouns:
+                words_set.add(noun)
+        for word in words_set:
+            tf = 0
+            df = 0
+            for li in noun_lines:
+                target_nouns = li.split()
+                temp_tf_count = target_nouns.count(word)
+                tf += temp_tf_count
+                if temp_tf_count > 0:
+                    df += 1
+            idf = log(total_docs_count / (df + 1))
+            df = df / total_docs_count
+            row = [idx, word, tf, df, idf]
+            writer.writerow(row)
+        print(idx)
+    f.close()
+
+
+def write_word_count_by_doc():
+    f = open(
+        os.path.join(OUTPUTS_DIR, "word-count-by-doc.csv"),
+        "w",
+        encoding="utf-8",
+    )
+    writer = csv.writer(f)
+    writer.writerow(["doc_index", "word", "count"])
+    with open(os.path.join(OUTPUTS_DIR, "tf-df-idf.csv")) as f:
+        reader = csv.reader(f)
+        for idx, line in enumerate(reader):
+            if idx == 0:
+                continue
+            doc_index, word, count, *_ = line
+
+            writer.writerow([doc_index, word, count])
+    f.close()
+
+
 def main():
-    count_all()
+    # count_all()
     # process()
+    write_td_idf_by_doc()
+    # write_word_count_by_doc()
     # remove_no_context_rows()
     # write_reindex_raw_data()
 
