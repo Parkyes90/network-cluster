@@ -1,3 +1,4 @@
+import csv
 import os
 import pandas as pd
 import numpy as np
@@ -125,14 +126,25 @@ def read_word_vector_docs():
     df["wv"] = df["tokens"].map(get_sentence_mean_vector)
     word_vectors = df.wv.to_list()
     num_clusters = 4
-    kmeans_clustering = KMeans(n_clusters=num_clusters)
+    kmeans_clustering = KMeans(n_clusters=num_clusters, random_state=42)
     idx = kmeans_clustering.fit_predict(word_vectors)
     df["cluster"] = idx
     centroids = kmeans_clustering.cluster_centers_
     distances = []
     # print(word_vectors)
+    f = open(
+        os.path.join(OUTPUTS_DIR, "cluster-center-vectors.csv"),
+        "w",
+        encoding="utf-8",
+    )
+    writer = csv.writer(f)
+    writer.writerow(["cluster", *range(300)])
+    for i, center in enumerate(centroids):
+        writer.writerow([i, *center])
+    f.close()
     for idx, i in enumerate(idx):
         center = centroids[i]
+
         # mean_distance = np.mean(center,)
         # print(mean_distance)
         distance = 1 - np.dot(center, word_vectors[idx]) / (
@@ -146,10 +158,10 @@ def read_word_vector_docs():
 def main():
     df = read_word_vector_docs()
     # draw_chart(df)
-    del df["wv"]
-    del df["tokens_len"]
-    del df["tokens"]
-    df.to_csv(os.path.join(OUTPUTS_DIR, "cluster-docs.csv"), index=False)
+    # del df["wv"]
+    # del df["tokens_len"]
+    # del df["tokens"]
+    # df.to_csv(os.path.join(OUTPUTS_DIR, "cluster-docs.csv"), index=False)
 
 
 if __name__ == "__main__":
